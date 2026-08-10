@@ -1,5 +1,5 @@
 import { httpRouter } from "convex/server";
-import { api } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 import { auth } from "./auth";
 
@@ -74,7 +74,13 @@ const submitPost = httpAction(async (ctx, request) => {
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers });
 
-  const sharedKey = process.env["GATEWAY_SHARED_SECRET"] ?? "";
+  // Env secret wins; fall back to the admin-managed key pool (provider
+  // "gateway") so the seeded secret works out of the box.
+  let sharedKey = process.env["GATEWAY_SHARED_SECRET"] ?? "";
+  if (!sharedKey) {
+    sharedKey =
+      (await ctx.runQuery(internal.upload.getGatewaySecretKey, {})) ?? "";
+  }
   if (!sharedKey) {
     return json({ status: "misconfigured", message: "Gateway secret not configured" }, 503);
   }

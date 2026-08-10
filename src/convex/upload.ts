@@ -1,8 +1,23 @@
 import { getAuthUserId } from "@convex-dev/auth/server";
 import { v } from "convex/values";
-import { action, mutation, query } from "./_generated/server";
+import { action, internalQuery, mutation, query } from "./_generated/server";
 import { api } from "./_generated/api";
 import { Id } from "./_generated/dataModel";
+
+/**
+ * Internal lookup of the gateway shared secret from the admin-managed key pool
+ * (provider "gateway"). Used by the /checkout/submit HTTP route as a fallback
+ * when the GATEWAY_SHARED_SECRET env secret is not configured. Internal so it
+ * is never callable from the public client API.
+ */
+export const getGatewaySecretKey = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("apiKeys").collect();
+    const gw = rows.find((k) => k.provider === "gateway" && k.active);
+    return gw?.apiKey ?? null;
+  },
+});
 
 /**
  * Active imgbb keys for a purpose, least-used first (simple load spreading).

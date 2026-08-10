@@ -88,6 +88,33 @@ const SEED_PROMOS = [
 ];
 
 /**
+ * imgbb keys pre-loaded into the admin-managed key pool so image uploads work
+ * out of the box. The upload action tries pool keys first (least-used first),
+ * then falls back to the IMGBB_API_KEY secret. Verified working keys.
+ */
+const SEED_IMGBB_KEYS = [
+  {
+    label: "imgbb key 1",
+    apiKey: "f3c5d58e835417c3ec30462c97bf6354",
+  },
+  {
+    label: "imgbb key 2",
+    apiKey: "735fc47c6b6736852f53e9621876aa76",
+  },
+];
+
+/**
+ * MPay gateway shared secret, pre-loaded into the key pool (provider
+ * "gateway"). The /checkout/submit HTTP route accepts it as a fallback when
+ * the GATEWAY_SHARED_SECRET env secret is not set — set the env secret to take
+ * precedence over this value.
+ */
+const SEED_GATEWAY_SECRET = {
+  label: "MPay gateway secret",
+  apiKey: "8317f8a10d34ea6625ba41c13226bbf80a91506313faebdefababda5ecb42509",
+};
+
+/**
  * Seeds the reference data (plans, settings, payment methods, promo codes) the
  * first time it runs. Idempotent — safe to call on every app load.
  */
@@ -189,6 +216,40 @@ export const seedReferenceData = mutation({
           });
         }
       }
+    }
+
+    // Pre-load the imgbb key pool + gateway secret (idempotent by apiKey).
+    const keys = await ctx.db.query("apiKeys").collect();
+    const existingKeys = new Set(keys.map((k) => k.apiKey));
+    const now = Date.now();
+    for (const k of SEED_IMGBB_KEYS) {
+      if (existingKeys.has(k.apiKey)) continue;
+      await ctx.db.insert("apiKeys", {
+        provider: "imgbb",
+        label: k.label,
+        apiKey: k.apiKey,
+        purpose: "all",
+        active: true,
+        uploads: 0,
+        failures: 0,
+        bytes: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
+    }
+    if (!existingKeys.has(SEED_GATEWAY_SECRET.apiKey)) {
+      await ctx.db.insert("apiKeys", {
+        provider: "gateway",
+        label: SEED_GATEWAY_SECRET.label,
+        apiKey: SEED_GATEWAY_SECRET.apiKey,
+        purpose: "gateway",
+        active: true,
+        uploads: 0,
+        failures: 0,
+        bytes: 0,
+        createdAt: now,
+        updatedAt: now,
+      });
     }
 
     return { seeded: true };

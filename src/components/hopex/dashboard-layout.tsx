@@ -54,16 +54,16 @@ export const primaryNav = [
 export function Brand({ compact }: { compact?: boolean }) {
   const { settings } = useHope();
   const name = settings?.siteName || "HopeX";
-  const title = settings?.siteTitle;
-
-  useEffect(() => {
-    if (title) document.title = title;
-  }, [title]);
+  const logo = settings?.siteLogo;
 
   return (
     <Link to="/" className="flex items-center gap-2">
       <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl gradient-brand font-display text-sm font-black text-primary-foreground">
-        {name[0] ?? "H"}
+        {logo ? (
+          <img src={logo} alt={`${name} logo`} className="h-full w-full object-cover" />
+        ) : (
+          (name[0] ?? "H")
+        )}
       </span>
       {!compact ? <span className="font-display text-lg font-extrabold">{name}</span> : null}
     </Link>

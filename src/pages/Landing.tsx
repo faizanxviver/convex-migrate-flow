@@ -22,6 +22,7 @@ const steps = [
 export default function Landing() {
   const { user, plans, settings } = useHope();
   const name = settings?.siteName || "HopeX";
+  const logo = settings?.siteLogo;
   const visible = plans.filter((p) => p.active).slice(0, 4);
 
   return (
@@ -31,8 +32,12 @@ export default function Landing() {
       <header className="sticky top-0 z-40 glass-soft rounded-none">
         <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3">
           <Link to="/" className="flex items-center gap-2">
-            <span className="grid h-9 w-9 place-items-center rounded-xl gradient-brand font-display text-sm font-black text-primary-foreground">
-              {name[0]}
+            <span className="grid h-9 w-9 place-items-center overflow-hidden rounded-xl gradient-brand font-display text-sm font-black text-primary-foreground">
+              {logo ? (
+                <img src={logo} alt={`${name} logo`} className="h-full w-full object-cover" />
+              ) : (
+                name[0]
+              )}
             </span>
             <span className="font-display text-lg font-extrabold">{name}</span>
           </Link>
@@ -231,8 +236,12 @@ export default function Landing() {
       <footer className="border-t border-border/50 px-4 py-8">
         <div className="mx-auto flex max-w-6xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <Link to="/" className="flex items-center gap-2">
-            <span className="grid h-8 w-8 place-items-center rounded-lg gradient-brand font-display text-xs font-black text-primary-foreground">
-              {name[0]}
+            <span className="grid h-8 w-8 place-items-center overflow-hidden rounded-lg gradient-brand font-display text-xs font-black text-primary-foreground">
+              {logo ? (
+                <img src={logo} alt={`${name} logo`} className="h-full w-full object-cover" />
+              ) : (
+                name[0]
+              )}
             </span>
             <span className="font-display text-base font-extrabold">{name}</span>
           </Link>

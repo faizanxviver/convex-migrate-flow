@@ -489,6 +489,8 @@
 .toaster [data-sonner-toast] {
   box-shadow: var(--shadow-elegant);
   backdrop-filter: blur(20px) saturate(140%);
+  border-radius: 1.25rem;
+  overflow: hidden;
 }
 .toaster [data-sonner-toast] [data-icon] {
   color: var(--muted-foreground);
@@ -504,6 +506,24 @@
 }
 .toaster [data-sonner-toast][data-type="info"] [data-icon] {
   color: var(--primary);
+}
+
+/* Themed progress bar (tint follows the toast type) */
+.toaster [data-sonner-toast] [data-sonner-loader] {
+  --loader-bg: color-mix(in oklab, var(--primary) 35%, transparent);
+  background: var(--loader-bg);
+}
+.toaster [data-sonner-toast][data-type="success"] [data-sonner-loader] {
+  --loader-bg: color-mix(in oklab, var(--success) 60%, transparent);
+}
+.toaster [data-sonner-toast][data-type="error"] [data-sonner-loader] {
+  --loader-bg: color-mix(in oklab, var(--destructive) 60%, transparent);
+}
+.toaster [data-sonner-toast][data-type="warning"] [data-sonner-loader] {
+  --loader-bg: color-mix(in oklab, var(--gold) 65%, transparent);
+}
+.toaster [data-sonner-toast][data-type="info"] [data-sonner-loader] {
+  --loader-bg: color-mix(in oklab, var(--primary) 55%, transparent);
 }
 
 [dir="rtl"] body {

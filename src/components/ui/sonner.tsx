@@ -14,7 +14,30 @@ const Toaster = ({ ...props }: ToasterProps) => {
   return (
     <Sonner
       theme={theme}
+      position="top-center"
       className="toaster group"
+      toastOptions={{
+        classNames: {
+          toast:
+            "group toast glass !rounded-2xl !border !border-primary/25 !bg-[color-mix(in_oklab,var(--card)_88%,var(--primary))] !text-foreground !shadow-[var(--shadow-elegant)] !backdrop-blur-xl",
+          title: "!font-bold !text-foreground !text-sm",
+          description: "!text-xs !text-muted-foreground",
+          icon: "!text-primary",
+          actionButton:
+            "!rounded-xl !bg-primary !px-4 !py-1.5 !text-primary-foreground !font-semibold !text-xs",
+          cancelButton:
+            "!rounded-xl !bg-muted !text-muted-foreground !font-semibold !text-xs",
+          closeButton:
+            "!rounded-full !border !border-border/70 !bg-card/80 !text-muted-foreground",
+          success:
+            "!border-success/40 !bg-[color-mix(in_oklab,var(--card)_86%,var(--success))] [&_[data-icon]]:!text-success",
+          error:
+            "!border-destructive/40 !bg-[color-mix(in_oklab,var(--card)_86%,var(--destructive))] [&_[data-icon]]:!text-destructive",
+          warning:
+            "!border-gold/45 !bg-[color-mix(in_oklab,var(--card)_86%,var(--gold))] [&_[data-icon]]:!text-gold",
+          info: "!border-primary/40 !bg-[color-mix(in_oklab,var(--card)_88%,var(--primary))] [&_[data-icon]]:!text-primary",
+        },
+      }}
       icons={{
         success: <CircleCheckIcon className="size-4" />,
         info: <InfoIcon className="size-4" />,
@@ -22,40 +45,10 @@ const Toaster = ({ ...props }: ToasterProps) => {
         error: <OctagonXIcon className="size-4" />,
         loading: <Loader2Icon className="size-4 animate-spin" />,
       }}
-      toastOptions={{
-        classNames: {
-          toast: "group-[.toaster]:!rounded-2xl group-[.toaster]:!font-sans",
-          description:
-            "group-[.toaster]:!text-xs group-[.toaster]:!text-muted-foreground",
-          actionButton:
-            "group-[.toaster]:!rounded-xl group-[.toaster]:!bg-primary group-[.toaster]:!text-primary-foreground group-[.toaster]:!font-semibold",
-          cancelButton:
-            "group-[.toaster]:!rounded-xl group-[.toaster]:!bg-muted group-[.toaster]:!text-muted-foreground",
-          closeButton:
-            "group-[.toaster]:!rounded-full group-[.toaster]:!border group-[.toaster]:!border-border/70 group-[.toaster]:!bg-card/80 group-[.toaster]:!text-muted-foreground",
-        },
-      }}
       style={
         {
           "--width": "360px",
           "--border-radius": "1.25rem",
-          "--normal-bg": "color-mix(in oklab, var(--card) 88%, transparent)",
-          "--normal-bg-hover": "color-mix(in oklab, var(--card) 95%, transparent)",
-          "--normal-text": "var(--foreground)",
-          "--normal-border": "var(--glass-border)",
-          "--normal-border-hover": "var(--glass-border)",
-          "--success-bg": "color-mix(in oklab, var(--success) 13%, transparent)",
-          "--success-text": "var(--foreground)",
-          "--success-border": "color-mix(in oklab, var(--success) 45%, transparent)",
-          "--error-bg": "color-mix(in oklab, var(--destructive) 13%, transparent)",
-          "--error-text": "var(--foreground)",
-          "--error-border": "color-mix(in oklab, var(--destructive) 45%, transparent)",
-          "--info-bg": "color-mix(in oklab, var(--primary) 13%, transparent)",
-          "--info-text": "var(--foreground)",
-          "--info-border": "color-mix(in oklab, var(--primary) 45%, transparent)",
-          "--warning-bg": "color-mix(in oklab, var(--warning) 15%, transparent)",
-          "--warning-text": "var(--foreground)",
-          "--warning-border": "color-mix(in oklab, var(--warning) 50%, transparent)",
         } as React.CSSProperties
       }
       {...props}

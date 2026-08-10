@@ -19,6 +19,15 @@ const ADMIN_EMAILS = [
   "umairarajper11@gmail.com",
 ];
 
+/** Mobile numbers (digits only) that are auto-promoted to admin on sign-in. */
+const ADMIN_PHONES = ["03083524912"];
+
+/** True when the sign-in identifier belongs to a reserved operator account. */
+function isOperator(email: string, phone?: string | null) {
+  if (ADMIN_EMAILS.includes(email.toLowerCase())) return true;
+  return Boolean(phone && ADMIN_PHONES.includes(phone.replace(/\D/g, "")));
+}
+
 /**
  * Creates the HopeX profile row + welcome data the first time a signed-in user
  * opens the app (the Convex equivalent of the `handle_new_user` DB trigger).
@@ -28,10 +37,18 @@ export const ensureProfile = mutation({
   args: { referredBy: v.optional(v.string()) },
   handler: async (ctx, { referredBy }) => {
     const userId = await requireUser(ctx);
-    const existing = await getProfileByUserId(ctx, userId);
-    if (existing) return existing._id;
-
     const user = (await ctx.db.get(userId))!;
+    const existing = await getProfileByUserId(ctx, userId);
+    const operator = isOperator(user.email ?? "", user.phone);
+
+    // Already bootstrapped — still re-apply operator promotion so a reserved
+    // phone/email becomes admin even if its profile predates this list.
+    if (existing) {
+      if (operator && user.role !== ROLES.ADMIN) {
+        await ctx.db.patch(userId, { role: ROLES.ADMIN });
+      }
+      return existing._id;
+    }
 
     let code = generateReferralCode();
     // Collision-safe loop.
@@ -71,8 +88,8 @@ export const ensureProfile = mutation({
       updatedAt: now,
     });
 
-    // Auto-admin for the reserved operator addresses (mirrors the old trigger).
-    if (ADMIN_EMAILS.includes(email.toLowerCase())) {
+    // Auto-admin for the reserved operator emails / mobile numbers.
+    if (operator) {
       await ctx.db.patch(userId, { role: ROLES.ADMIN });
     }
 

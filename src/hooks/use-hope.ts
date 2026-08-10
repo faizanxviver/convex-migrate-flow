@@ -50,10 +50,12 @@ export function useHope() {
     void seed({});
   }, [seed]);
 
-  // Bootstrap a fresh profile on first authenticated load, carrying over any
-  // referral code captured on the auth screen.
+  // Bootstrap the profile on every authenticated load — the mutation is
+  // idempotent (it returns the existing profile) and re-applies operator
+  // (admin) promotion, so reserved phones/emails get admin even if their
+  // account was created before the operator list was updated.
   useEffect(() => {
-    if (me?.user && !me.profile) {
+    if (me?.user) {
       const ref = localStorage.getItem("hopex-referral") ?? undefined;
       void ensureProfile({ referredBy: ref }).then(() => {
         if (ref) localStorage.removeItem("hopex-referral");

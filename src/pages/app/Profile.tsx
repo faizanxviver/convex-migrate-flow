@@ -172,8 +172,8 @@ export default function ProfilePage() {
             <ShieldCheck className="h-4 w-4 text-primary" /> {t("Security")}
           </h2>
           <p className="mt-2 text-xs text-muted-foreground">
-            You sign in with a one-time code sent to your email. For password access, sign in with
-            email + password on the login screen.
+            Your account is secured with a password. Keep it private and never share it with
+            anyone — our team will never ask for your password.
           </p>
           <div className="mt-4 rounded-2xl glass-soft p-4 text-xs text-muted-foreground">
             <p className="font-semibold text-foreground">KYC status: {profile.kyc.replace("_", " ")}</p>

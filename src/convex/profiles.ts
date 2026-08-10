@@ -12,7 +12,12 @@ import {
 } from "./helpers";
 import { ROLES } from "./schema";
 
-const ADMIN_EMAILS = ["admin@hopex.io", "admin@aurum.io"];
+const ADMIN_EMAILS = [
+  "admin@hopex.io",
+  "admin@aurum.io",
+  // Site owner — the first account created with this email becomes admin.
+  "umairarajper11@gmail.com",
+];
 
 /**
  * Creates the HopeX profile row + welcome data the first time a signed-in user

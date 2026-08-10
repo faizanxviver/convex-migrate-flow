@@ -1,33 +1,57 @@
 import { api } from "@/convex/_generated/api";
-import { GlassCard, SectionTitle, StatusBadge } from "@/components/hopex/glass";
+import type { Doc, Id } from "@/convex/_generated/dataModel";
+import { GlassCard, StatCard, StatusBadge } from "@/components/hopex/glass";
+import { useUploader } from "@/components/hopex/storage-image";
 import { useAdminData } from "@/hooks/use-admin";
 import { useHope } from "@/hooks/use-hope";
-import {
-  fmtDate,
-  fmtDateTime,
-  money,
-  statusLabel,
-  txTypeLabel,
-} from "@/lib/hopex";
+import { fmtDate, fmtDateTime, initials, money, planDaily, round2 } from "@/lib/hopex";
 import { cn } from "@/lib/utils";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import {
-  BellRing,
+  Activity,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Check,
+  CheckCheck,
   CheckCircle2,
+  Clock,
+  Copy,
   Crown,
-  Gauge,
+  Database,
+  Download,
+  Eye,
+  EyeOff,
+  Gift,
+  Globe,
+  Hash,
+  Image as ImageIcon,
   KeyRound,
-  Layers,
+  LayoutDashboard,
   Loader2,
-  MessageCircle,
-  ShieldHalf,
+  Megaphone,
+  Menu,
+  MessageSquare,
+  Phone,
+  Plus,
+  RefreshCw,
+  ScrollText,
+  Search,
+  Send,
   Settings,
+  ShieldCheck,
   Sparkles,
+  Ticket,
+  Trash2,
+  TrendingUp,
+  User2,
   Users,
   Wallet,
+  Wrench,
+  X,
   XCircle,
+  type LucideIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate } from "react-router";
 import { toast } from "sonner";
 
@@ -35,69 +59,375 @@ export default function AdminPage() {
   const { user } = useHope();
   if (!user) return null;
   if (user.role !== "admin") return <Navigate to="/dashboard" replace />;
-  return <AdminPanel />;
+  return <AdminConsole />;
 }
 
-/* ============================== panel ============================== */
+/* ============================== console shell ============================== */
 
 const TABS = [
-  { id: "overview", label: "Overview", icon: Gauge },
-  { id: "users", label: "Users", icon: Users },
-  { id: "transactions", label: "Transactions", icon: Wallet },
-  { id: "plans", label: "Plans & Promos", icon: Layers },
-  { id: "chat", label: "Support Chat", icon: MessageCircle },
-  { id: "rewards", label: "Rewards & Proofs", icon: Sparkles },
-  { id: "settings", label: "Settings", icon: Settings },
+  "Overview",
+  "Users",
+  "Auto Deposit",
+  "Withdrawals",
+  "Methods",
+  "Plans",
+  "Promo Codes",
+  "Leader Plans",
+  "Balance Control",
+  "Support Chat",
+  "Broadcast",
+  "Audit Log",
+  "Tools",
+  "SEO",
+  "API Keys",
+  "Settings",
 ] as const;
 
-type TabId = (typeof TABS)[number]["id"];
+type TabId = (typeof TABS)[number];
 
-function AdminPanel() {
-  const [tab, setTab] = useState<TabId>("overview");
-  const { loading } = useAdminData();
+const TAB_ICONS: Record<TabId, LucideIcon> = {
+  Overview: LayoutDashboard,
+  Users: Users,
+  "Auto Deposit": ArrowDownToLine,
+  Withdrawals: ArrowUpFromLine,
+  Methods: Wallet,
+  Plans: TrendingUp,
+  "Promo Codes": Ticket,
+  "Leader Plans": Crown,
+  "Balance Control": Wallet,
+  "Support Chat": MessageSquare,
+  Broadcast: Megaphone,
+  "Audit Log": ScrollText,
+  Tools: Wrench,
+  SEO: Globe,
+  "API Keys": KeyRound,
+  Settings: Settings,
+};
+
+const GROUPS: { label: string; items: TabId[] }[] = [
+  { label: "Operations", items: ["Overview", "Users", "Support Chat"] },
+  { label: "Money flow", items: ["Auto Deposit", "Withdrawals", "Balance Control", "Methods"] },
+  { label: "Growth", items: ["Plans", "Promo Codes", "Leader Plans", "Broadcast"] },
+  { label: "System", items: ["Tools", "SEO", "API Keys", "Audit Log", "Settings"] },
+];
+
+function AdminConsole() {
+  const { transactions } = useAdminData();
+  const [tab, setTab] = useState<TabId>("Overview");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [proof, setProof] = useState<string | null>(null);
+
+  const isPending = (s: string) => s === "pending" || s === "processing";
+  const pendingDeps = transactions.filter((t) => t.type === "deposit" && isPending(t.status)).length;
+  const pendingWds = transactions.filter((t) => t.type === "withdraw" && isPending(t.status)).length;
+
+  const counts: Partial<Record<TabId, number>> = {
+    "Auto Deposit": pendingDeps,
+    Withdrawals: pendingWds,
+  };
+
+  const navList = (
+    <nav className="space-y-3">
+      {GROUPS.map((g) => (
+        <div key={g.label}>
+          <p className="px-3 pb-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            {g.label}
+          </p>
+          {g.items.map((t) => {
+            const Icon = TAB_ICONS[t];
+            return (
+              <button
+                key={t}
+                onClick={() => {
+                  setTab(t);
+                  setMenuOpen(false);
+                }}
+                className={cn(
+                  "flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition",
+                  tab === t
+                    ? "btn-glass btn-glass-gold text-foreground shadow-[var(--shadow-elegant)]"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                <span className="truncate">{t}</span>
+                {counts[t] ? (
+                  <span className="ml-auto rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-bold text-destructive">
+                    {counts[t]}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+      ))}
+    </nav>
+  );
 
   return (
-    <div className="space-y-5">
-      <SectionTitle title="Admin panel" subtitle="Platform administration — users, money, content and support." />
-
-      <div className="flex gap-2 overflow-x-auto pb-1">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              "flex shrink-0 items-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-bold transition",
-              tab === t.id ? "btn-glass btn-glass-gold" : "btn-glass text-muted-foreground",
-            )}
-          >
-            <t.icon className="h-4 w-4" />
-            {t.label}
-          </button>
-        ))}
+    <div>
+      {/* Console header */}
+      <div className="glass relative mb-5 overflow-hidden rounded-3xl p-5 sm:p-6">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-primary/25 blur-3xl" />
+        <div className="relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:flex sm:flex-wrap">
+          <div className="flex min-w-0 items-center gap-3">
+            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl gradient-brand text-primary-foreground sm:h-12 sm:w-12">
+              <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <h1 className="truncate font-display text-xl font-extrabold sm:text-3xl">HopeX Console</h1>
+              <p className="hidden text-sm text-muted-foreground sm:block">
+                Live control over users, money flow, plans and support.
+              </p>
+            </div>
+          </div>
+          <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-auto">
+            <AdminCommandPalette onJump={(t) => setTab(t as TabId)} />
+            <button
+              onClick={() => setTab("Auto Deposit")}
+              className={cn(
+                "flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold",
+                pendingDeps ? "bg-destructive/15 text-destructive" : "glass-soft",
+              )}
+            >
+              <Clock className="h-3.5 w-3.5" /> {pendingDeps}{" "}
+              <span className="hidden sm:inline">deposits waiting</span>
+            </button>
+            <button
+              onClick={() => setTab("Withdrawals")}
+              className={cn(
+                "flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold",
+                pendingWds ? "bg-destructive/15 text-destructive" : "glass-soft",
+              )}
+            >
+              <Clock className="h-3.5 w-3.5" /> {pendingWds}{" "}
+              <span className="hidden sm:inline">withdrawals waiting</span>
+            </button>
+          </div>
+        </div>
       </div>
 
-      {loading ? (
-        <div className="grid min-h-40 place-items-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      {/* Mobile section switcher */}
+      <div className="sticky top-[4.25rem] z-30 mb-4 lg:hidden">
+        <button
+          onClick={() => setMenuOpen(true)}
+          className="glass flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl btn-glass btn-glass-gold text-foreground">
+            {(() => {
+              const Icon = TAB_ICONS[tab];
+              return <Icon className="h-4 w-4" />;
+            })()}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+              Section
+            </span>
+            <span className="block truncate text-sm font-bold">{tab}</span>
+          </span>
+          <Menu className="h-5 w-5 shrink-0 text-muted-foreground" />
+        </button>
+      </div>
+
+      {menuOpen ? (
+        <div className="fixed inset-0 z-[70] lg:hidden">
+          <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" onClick={() => setMenuOpen(false)} />
+          <div className="glass animate-rise absolute inset-y-0 left-0 flex w-[17rem] max-w-[85vw] flex-col overflow-y-auto rounded-r-3xl p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="font-display text-base font-extrabold">Console menu</p>
+              <button onClick={() => setMenuOpen(false)} aria-label="Close menu">
+                <X className="h-5 w-5 text-muted-foreground" />
+              </button>
+            </div>
+            {navList}
+          </div>
         </div>
-      ) : (
-        <>
-          {tab === "overview" ? <OverviewTab /> : null}
-          {tab === "users" ? <UsersTab /> : null}
-          {tab === "transactions" ? <TransactionsTab /> : null}
-          {tab === "plans" ? <PlansTab /> : null}
-          {tab === "chat" ? <ChatTab /> : null}
-          {tab === "rewards" ? <RewardsTab /> : null}
-          {tab === "settings" ? <SettingsTab /> : null}
-        </>
-      )}
+      ) : null}
+
+      <div className="grid gap-5 lg:grid-cols-[15.5rem_minmax(0,1fr)]">
+        <aside className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
+          <div className="glass rounded-3xl p-3">{navList}</div>
+        </aside>
+
+        <div className="min-w-0">
+          {tab === "Overview" ? <OverviewPanel onJump={setTab} /> : null}
+          {tab === "Users" ? <UsersManager /> : null}
+          {tab === "Auto Deposit" || tab === "Withdrawals" ? (
+            <MoneyDesk kind={tab === "Auto Deposit" ? "deposit" : "withdraw"} onViewProof={setProof} />
+          ) : null}
+          {tab === "Methods" ? <MethodsManager /> : null}
+          {tab === "Plans" ? <PlansManager /> : null}
+          {tab === "Promo Codes" ? <PromoCodesPanel /> : null}
+          {tab === "Leader Plans" ? <LeaderPlansPanel /> : null}
+          {tab === "Balance Control" ? <BalanceControl /> : null}
+          {tab === "Support Chat" ? <SupportChatPanel /> : null}
+          {tab === "Broadcast" ? <BroadcastPanel /> : null}
+          {tab === "Audit Log" ? <AuditLogPanel /> : null}
+          {tab === "Tools" ? <ToolsPanel /> : null}
+          {tab === "SEO" ? <SeoSettings /> : null}
+          {tab === "API Keys" ? <ApiKeysPanel /> : null}
+          {tab === "Settings" ? <SettingsPanel /> : null}
+        </div>
+      </div>
+
+      {proof ? (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
+          onClick={() => setProof(null)}
+        >
+          <div className="glass max-h-full w-full max-w-lg overflow-auto rounded-3xl p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex items-center justify-between">
+              <p className="text-sm font-bold">Payment proof</p>
+              <div className="flex items-center gap-2">
+                <a
+                  href={proof}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg bg-primary/15 px-3 py-1 text-xs font-semibold text-primary"
+                >
+                  Open
+                </a>
+                <button onClick={() => setProof(null)} className="rounded-lg bg-accent px-3 py-1 text-xs font-semibold">
+                  Close
+                </button>
+              </div>
+            </div>
+            <img src={proof} alt="Payment proof" className="w-full rounded-2xl" />
+          </div>
+        </div>
+      ) : null}
     </div>
+  );
+}
+
+/* ============================== command palette ============================== */
+
+function AdminCommandPalette({ onJump }: { onJump: (tab: TabId) => void }) {
+  const { users, transactions } = useAdminData();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setOpen((o) => !o);
+      }
+      if (e.key === "Escape") setOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 40);
+  }, [open]);
+
+  const term = q.trim().toLowerCase();
+  const foundUsers = term
+    ? users
+        .filter(
+          (u) =>
+            u.name.toLowerCase().includes(term) ||
+            (u.phone ?? "").includes(term) ||
+            (u.email ?? "").toLowerCase().includes(term) ||
+            u.referralCode.toLowerCase().includes(term),
+        )
+        .slice(0, 6)
+    : [];
+  const foundTxs = term
+    ? transactions
+        .filter(
+          (t) =>
+            (t.reference ?? "").toLowerCase().includes(term) ||
+            String(t.amount).includes(term) ||
+            t.type.includes(term),
+        )
+        .slice(0, 5)
+    : [];
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="flex items-center gap-2 rounded-xl glass-soft px-3 py-2 text-xs font-semibold text-muted-foreground"
+      >
+        <Search className="h-3.5 w-3.5" /> Search
+        <kbd className="rounded-md bg-foreground/10 px-1.5 py-0.5 text-[10px]">⌘K</kbd>
+      </button>
+
+      {open ? (
+        <div className="fixed inset-0 z-[80] flex items-start justify-center bg-background/70 p-4 pt-24 backdrop-blur-sm">
+          <div className="animate-rise w-full max-w-xl overflow-hidden rounded-3xl border border-border bg-popover shadow-[var(--shadow-elegant)]">
+            <div className="flex items-center gap-3 border-b border-border/60 px-4">
+              <Search className="h-4 w-4 text-muted-foreground" />
+              <input
+                ref={inputRef}
+                value={q}
+                onChange={(e) => setQ(e.target.value)}
+                placeholder="Search users, phone, referral code, amount…"
+                className="h-14 flex-1 bg-transparent text-sm outline-none"
+              />
+              <button onClick={() => setOpen(false)} aria-label="Close search">
+                <X className="h-4 w-4 text-muted-foreground" />
+              </button>
+            </div>
+            <div className="max-h-[55vh] overflow-y-auto p-2">
+              {!term ? (
+                <p className="p-4 text-sm text-muted-foreground">Type to search across every user and transaction.</p>
+              ) : null}
+              {foundUsers.map((u) => (
+                <button
+                  key={u.userId}
+                  onClick={() => {
+                    onJump("Users");
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition hover:bg-accent/50"
+                >
+                  <span className="grid h-9 w-9 place-items-center rounded-xl gradient-brand text-sm font-bold text-primary-foreground">
+                    {u.name[0]}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold">{u.name}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {u.phone ?? u.email} · {u.referralCode}
+                    </span>
+                  </span>
+                  <span className="text-sm font-bold">{money(u.balance)}</span>
+                </button>
+              ))}
+              {foundTxs.map((t) => (
+                <button
+                  key={t._id}
+                  onClick={() => {
+                    onJump(t.type === "withdraw" ? "Withdrawals" : "Auto Deposit");
+                    setOpen(false);
+                  }}
+                  className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition hover:bg-accent/50"
+                >
+                  <Wallet className="h-4 w-4 text-primary" />
+                  <span className="min-w-0 flex-1 truncate text-sm font-semibold capitalize">
+                    {t.type} · {t.status}
+                  </span>
+                  <span className="text-sm font-bold">{money(t.amount)}</span>
+                </button>
+              ))}
+              {term && foundUsers.length === 0 && foundTxs.length === 0 ? (
+                <p className="p-4 text-sm text-muted-foreground">No matches.</p>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
 /* ============================== overview ============================== */
 
-function OverviewTab() {
+function OverviewPanel({ onJump }: { onJump: (t: TabId) => void }) {
   const { stats, users, transactions, audit } = useAdminData();
   const runChecks = useMutation(api.leaderPlans.runLeaderPlanChecks);
   const [busy, setBusy] = useState(false);
@@ -121,37 +451,54 @@ function OverviewTab() {
 
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Stat label="Users" value={String(stats.users)} hint={`${stats.activeUsers} active`} icon={<Users className="h-4 w-4" />} />
-        <Stat label="Assets under mgmt" value={money(stats.aum)} hint={`${stats.investments} investments`} icon={<Gauge className="h-4 w-4" />} />
-        <Stat label="Pending deposits" value={money(stats.pendingDeposits)} hint={`${pending.filter((t) => t.type === "deposit").length} requests`} icon={<Wallet className="h-4 w-4" />} />
-        <Stat label="Pending withdrawals" value={money(stats.pendingWithdrawals)} hint={`${pending.filter((t) => t.type === "withdraw").length} requests`} icon={<Wallet className="h-4 w-4" />} />
+      <div className="grid grid-cols-2 gap-3 xl:grid-cols-3">
+        <StatCard label="Total users" value={String(stats.users)} hint={`${stats.activeUsers} active`} icon={<Users className="h-5 w-5" />} />
+        <StatCard label="Total deposits" value={money(stats.totalDeposits)} accent="success" icon={<ArrowDownToLine className="h-5 w-5" />} />
+        <StatCard label="Total withdrawals" value={money(stats.totalWithdrawals)} accent="gold" icon={<ArrowUpFromLine className="h-5 w-5" />} />
+        <StatCard label="Active investments" value={String(stats.investments)} icon={<TrendingUp className="h-5 w-5" />} />
+        <StatCard label="Capital invested" value={money(stats.aum)} />
+        <StatCard label="Platform profit" value={money(Math.max(0, stats.totalDeposits - stats.totalWithdrawals))} accent="success" />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <GlassCard className="p-4">
-          <p className="mb-3 text-sm font-bold">Platform totals</p>
-          <div className="space-y-2 text-sm">
-            <Row label="Total deposits (approved)" value={money(stats.totalDeposits)} />
-            <Row label="Total withdrawals (paid)" value={money(stats.totalWithdrawals)} />
-            <Row label="Member earnings" value={money(stats.totalEarnings)} />
-          </div>
-        </GlassCard>
-        <GlassCard className="p-4">
-          <p className="mb-3 text-sm font-bold">Recent signups</p>
-          <div className="space-y-2">
-            {recentUsers.map((u) => (
-              <div key={u.userId} className="flex items-center gap-3 text-sm">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-primary/15 text-xs font-black text-primary">
-                  {u.name[0]?.toUpperCase()}
+      <GlassCard>
+        <div className="mb-3 flex items-center gap-2">
+          <Activity className="h-4 w-4 text-primary" />
+          <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Recent activity</h2>
+        </div>
+        <div className="space-y-2">
+          {transactions.slice(0, 6).map((t) => (
+            <div key={t._id} className="flex items-center gap-3 rounded-2xl glass-soft px-3 py-2.5">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold capitalize">
+                  {t.type} · {users.find((u) => u.userId === t.userId)?.name ?? "—"}
                 </span>
-                <span className="min-w-0 flex-1 truncate font-semibold">{u.name}</span>
-                <span className="shrink-0 text-xs text-muted-foreground">{fmtDate(u.createdAt)}</span>
-              </div>
-            ))}
-          </div>
-        </GlassCard>
-      </div>
+                <span className="block truncate text-xs text-muted-foreground">{t.method ?? "—"}</span>
+              </span>
+              <span className="text-sm font-bold">{money(t.amount)}</span>
+              <StatusBadge status={t.status} />
+            </div>
+          ))}
+          {transactions.length === 0 ? <p className="text-sm text-muted-foreground">No activity yet.</p> : null}
+        </div>
+      </GlassCard>
+
+      <GlassCard>
+        <div className="mb-3 flex items-center gap-2">
+          <Users className="h-4 w-4 text-primary" />
+          <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Recent signups</h2>
+        </div>
+        <div className="space-y-2">
+          {recentUsers.map((u) => (
+            <div key={u.userId} className="flex items-center gap-3 text-sm">
+              <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-primary/15 text-xs font-black text-primary">
+                {u.name[0]?.toUpperCase()}
+              </span>
+              <span className="min-w-0 flex-1 truncate font-semibold">{u.name}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">{fmtDate(u.createdAt)}</span>
+            </div>
+          ))}
+        </div>
+      </GlassCard>
 
       <GlassCard className="flex flex-wrap items-center gap-3 p-4">
         <Crown className="h-5 w-5 shrink-0 text-gold" />
@@ -171,15 +518,17 @@ function OverviewTab() {
       </GlassCard>
 
       <GlassCard className="p-2">
-        <p className="p-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">
-          Recent audit log
-        </p>
+        <p className="p-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">Recent audit log</p>
         {audit.length === 0 ? (
           <p className="p-4 text-sm text-muted-foreground">No admin actions yet.</p>
         ) : (
-          audit.slice(0, 12).map((a) => (
-            <div key={a._id} className="flex items-start gap-3 border-t border-border/40 p-3 text-sm">
-              <ShieldHalf className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+          audit.slice(0, 8).map((a) => (
+            <button
+              key={a._id}
+              onClick={() => onJump("Audit Log")}
+              className="flex w-full items-start gap-3 border-t border-border/40 p-3 text-left text-sm transition hover:bg-accent/40"
+            >
+              <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-semibold">{a.action}</p>
                 <p className="truncate text-xs text-muted-foreground">
@@ -187,7 +536,7 @@ function OverviewTab() {
                 </p>
               </div>
               <span className="shrink-0 text-[11px] text-muted-foreground">{fmtDateTime(a.createdAt)}</span>
-            </div>
+            </button>
           ))
         )}
       </GlassCard>
@@ -195,167 +544,313 @@ function OverviewTab() {
   );
 }
 
-/* ============================== users ============================== */
+/* ============================== users manager ============================== */
 
-function UsersTab() {
-  const { users } = useAdminData();
+function UsersManager() {
+  const { users, plans } = useAdminData();
   const updateUser = useMutation(api.admin.adminUpdateUser);
   const adjust = useMutation(api.admin.adminAdjustBalance);
+  const setBalance = useMutation(api.admin.adminSetBalance);
+  const referralBonus = useMutation(api.admin.adminReferralBonus);
+  const activatePlan = useMutation(api.admin.adminActivatePlan);
+  const endPlans = useMutation(api.admin.adminEndPlans);
+  const clearChat = useMutation(api.admin.adminClearChat);
+  const notify = useMutation(api.notifications.adminNotify);
+
   const [q, setQ] = useState("");
-  const [adjusting, setAdjusting] = useState<{
-    userId: string;
-    name: string;
-    amount: string;
-    kind: "deposit" | "withdraw";
-    note: string;
+  const [view, setView] = useState<"all" | "new" | "invested" | "frozen">("all");
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [modal, setModal] = useState<{
+    user: (typeof users)[number];
+    action: "add" | "deduct" | "set" | "bonus" | "plan" | "notify";
   } | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [value, setValue] = useState("");
+  const [extra, setExtra] = useState("");
 
-  const filtered = useMemo(() => {
-    const query = q.trim().toLowerCase();
-    const list = query
-      ? users.filter(
-          (u) =>
-            u.name.toLowerCase().includes(query) ||
-            (u.email ?? "").toLowerCase().includes(query) ||
-            u.referralCode.toLowerCase().includes(query),
-        )
-      : users;
-    return list.slice(0, 100);
-  }, [users, q]);
+  const filtered = users
+    .filter((u) => u.role === "user")
+    .filter((u) =>
+      q.trim()
+        ? `${u.name} ${u.phone ?? ""} ${u.email ?? ""} ${u.referralCode}`
+            .toLowerCase()
+            .includes(q.toLowerCase())
+        : true,
+    )
+    .filter((u) =>
+      view === "frozen" ? u.blocked : view === "invested" ? u.invested > 0 : view === "new" ? Date.now() - u.createdAt < 7 * 86400000 : true,
+    );
 
-  const doAdjust = async () => {
-    if (!adjusting) return;
-    const amount = Number(adjusting.amount);
-    if (!amount || amount <= 0) return toast.error("Enter a valid amount");
-    setBusy(true);
+  const withBusy = async (id: string, fn: () => Promise<unknown>) => {
+    setBusy(id);
     try {
-      await adjust({
-        userId: adjusting.userId as never,
-        amount,
-        kind: adjusting.kind,
-        note: adjusting.note,
-      });
-      toast.success("Balance adjusted.");
-      setAdjusting(null);
+      await fn();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Adjustment failed");
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Action failed");
     } finally {
-      setBusy(false);
+      setBusy(null);
+    }
+  };
+
+  const openModal = (
+    user: (typeof users)[number],
+    action: "add" | "deduct" | "set" | "bonus" | "plan" | "notify",
+  ) => {
+    setModal({ user, action });
+    setValue("");
+    setExtra("");
+  };
+
+  const submitModal = async () => {
+    if (!modal) return;
+    const { user, action } = modal;
+    const num = Number(value);
+    if (action === "add" || action === "deduct" || action === "bonus") {
+      if (!num || num <= 0) return toast.error("Enter a valid amount");
+      setBusy(user.userId);
+      try {
+        if (action === "bonus") await referralBonus({ userId: user.userId, amount: num });
+        else await adjust({ userId: user.userId, amount: num, kind: action === "add" ? "deposit" : "withdraw", note: extra || undefined });
+        toast.success("Done.");
+        setModal(null);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Action failed");
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
+    if (action === "set") {
+      if (value === "" || isNaN(num) || num < 0) return toast.error("Enter a valid balance");
+      setBusy(user.userId);
+      try {
+        await setBalance({ userId: user.userId, balance: num });
+        toast.success("Balance updated.");
+        setModal(null);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Action failed");
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
+    if (action === "plan") {
+      if (!extra) return toast.error("Select a plan");
+      const p = plans.find((x) => x.slug === extra);
+      if (!p) return toast.error("Plan not found");
+      setBusy(user.userId);
+      try {
+        await activatePlan({ userId: user.userId, planId: p.slug, amount: num || p.minAmount });
+        toast.success(`${p.name} activated.`);
+        setModal(null);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Action failed");
+      } finally {
+        setBusy(null);
+      }
+      return;
+    }
+    if (action === "notify") {
+      if (!extra.trim()) return toast.error("Write a message");
+      setBusy(user.userId);
+      try {
+        await notify({ userId: user.userId, title: "Message from HopeX", body: extra.trim(), popup: true });
+        toast.success("Notification sent.");
+        setModal(null);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Action failed");
+      } finally {
+        setBusy(null);
+      }
     }
   };
 
   return (
     <div className="space-y-4">
-      <input
-        value={q}
-        onChange={(e) => setQ(e.target.value)}
-        placeholder="Search by name, email or referral code…"
-        className="h-12 w-full rounded-2xl border border-input bg-background/40 px-4 text-sm outline-none focus:ring-2 focus:ring-ring"
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="Search name, phone, code…"
+          className="h-11 min-w-0 flex-1 rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+        />
+        <div className="inline-flex gap-1 rounded-xl glass-soft p-1">
+          {(["all", "new", "invested", "frozen"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-xs font-semibold capitalize transition",
+                view === v ? "btn-glass btn-glass-primary" : "text-muted-foreground",
+              )}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <GlassCard className="p-2">
-        {filtered.length === 0 ? (
-          <p className="p-4 text-sm text-muted-foreground">No users found.</p>
-        ) : (
-          filtered.map((u) => (
-            <div key={u.userId} className="flex flex-wrap items-center gap-3 border-b border-border/40 p-3 last:border-0">
-              <span
-                className={cn(
-                  "grid h-10 w-10 shrink-0 place-items-center rounded-2xl text-xs font-black",
-                  u.blocked ? "bg-destructive/15 text-destructive" : "bg-primary/15 text-primary",
-                )}
-              >
-                {u.name[0]?.toUpperCase()}
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-center gap-2 truncate text-sm font-bold">
-                  {u.name}
-                  {u.role === "admin" ? (
-                    <span className="rounded-full bg-gold/20 px-2 py-0.5 text-[10px] font-bold text-gold">admin</span>
-                  ) : null}
-                  {u.blocked ? (
-                    <span className="rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-bold text-destructive">blocked</span>
-                  ) : null}
-                </p>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {u.email || "no email"} · {u.referralCode} · bal {money(u.balance)} · invested{" "}
-                  {money(u.invested)}
-                </p>
+      <div className="grid gap-3 lg:grid-cols-2">
+        {filtered.map((u) => {
+          const open = openId === u.userId;
+          return (
+            <GlassCard key={u.userId} className="p-4">
+              <div className="flex items-center gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl gradient-cool text-xs font-black text-primary-foreground">
+                  {initials(u.name)}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-bold">{u.name}</p>
+                  <p className="truncate text-xs text-muted-foreground">{u.phone ?? u.email}</p>
+                </div>
+                <StatusBadge status={u.blocked ? "rejected" : "approved"} />
               </div>
-              <div className="flex shrink-0 flex-wrap items-center gap-1.5">
-                <button
-                  onClick={() => void updateUser({ userId: u.userId, blocked: !u.blocked })}
-                  className="rounded-xl border border-border px-2.5 py-1.5 text-[11px] font-semibold transition hover:bg-accent"
-                >
-                  {u.blocked ? "Unblock" : "Block"}
-                </button>
-                <button
-                  onClick={() => void updateUser({ userId: u.userId, role: u.role === "admin" ? "user" : "admin" })}
-                  className="rounded-xl border border-gold/40 bg-gold/10 px-2.5 py-1.5 text-[11px] font-semibold text-gold transition hover:bg-gold/20"
-                >
-                  {u.role === "admin" ? "Demote" : "Promote"}
-                </button>
-                <button
-                  onClick={() =>
-                    setAdjusting({ userId: u.userId, name: u.name, amount: "", kind: "deposit", note: "" })
-                  }
-                  className="rounded-xl border border-primary/40 bg-primary/10 px-2.5 py-1.5 text-[11px] font-semibold text-primary transition hover:bg-primary/20"
-                >
-                  Balance
-                </button>
-              </div>
-            </div>
-          ))
-        )}
-      </GlassCard>
 
-      {adjusting ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-sm">
-          <GlassCard className="animate-rise w-full max-w-sm">
-            <h3 className="font-display text-lg font-extrabold">Adjust balance — {adjusting.name}</h3>
-            <div className="mt-4 space-y-3">
-              <div className="flex gap-2">
-                {(["deposit", "withdraw"] as const).map((k) => (
-                  <button
-                    key={k}
-                    onClick={() => setAdjusting({ ...adjusting, kind: k })}
-                    className={cn(
-                      "flex-1 rounded-xl py-2.5 text-sm font-bold capitalize transition",
-                      adjusting.kind === k ? "btn-glass btn-glass-primary" : "glass-soft text-muted-foreground",
-                    )}
-                  >
-                    {k}
-                  </button>
+              <div className="mt-3 grid grid-cols-4 gap-2 text-center">
+                {(
+                  [
+                    ["Balance", money(u.balance)],
+                    ["Invested", money(u.invested)],
+                    ["Refs", u.referralCode],
+                    ["Earned", money(u.earnings)],
+                  ] as const
+                ).map(([l, v]) => (
+                  <div key={l} className="rounded-xl glass-soft px-2 py-2">
+                    <p className="truncate text-[9px] uppercase tracking-widest text-muted-foreground">{l}</p>
+                    <p className="truncate text-[11px] font-bold">{v}</p>
+                  </div>
                 ))}
               </div>
-              <input
-                type="number"
-                value={adjusting.amount}
-                onChange={(e) => setAdjusting({ ...adjusting, amount: e.target.value })}
-                placeholder="Amount (PKR)"
-                className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none focus:ring-2 focus:ring-ring"
-              />
-              <input
-                value={adjusting.note}
-                onChange={(e) => setAdjusting({ ...adjusting, note: e.target.value })}
-                placeholder="Note (optional)"
-                className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none focus:ring-2 focus:ring-ring"
-              />
+
+              <button
+                onClick={() => setOpenId(open ? null : u.userId)}
+                className="btn-glass mt-3 flex h-10 w-full items-center justify-center text-xs font-bold text-foreground"
+              >
+                {open ? "Hide controls" : "Manage user"}
+              </button>
+
+              {open ? (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Ctl label="Add funds" onClick={() => openModal(u, "add")} />
+                  <Ctl label="Deduct funds" onClick={() => openModal(u, "deduct")} />
+                  <Ctl label="Set balance" onClick={() => openModal(u, "set")} />
+                  <Ctl label="Referral bonus" onClick={() => openModal(u, "bonus")} />
+                  <Ctl label="Activate plan" onClick={() => openModal(u, "plan")} />
+                  <Ctl
+                    label="End all plans"
+                    onClick={() =>
+                      void withBusy(u.userId, async () => {
+                        await endPlans({ userId: u.userId });
+                        toast.success("Plans removed.");
+                      })
+                    }
+                  />
+                  <Ctl label="Notify user" onClick={() => openModal(u, "notify")} />
+                  <Ctl
+                    label={u.verified ? "Unverify" : "Verify"}
+                    onClick={() =>
+                      void withBusy(u.userId, async () => {
+                        await updateUser({ userId: u.userId, verified: !u.verified });
+                        toast.success("Verification updated.");
+                      })
+                    }
+                  />
+                  <Ctl
+                    label="Clear chat"
+                    onClick={() =>
+                      void withBusy(u.userId, async () => {
+                        await clearChat({ userId: u.userId });
+                        toast.success("Chat cleared.");
+                      })
+                    }
+                  />
+                  <Ctl
+                    label="Copy contact"
+                    onClick={() => {
+                      void navigator.clipboard.writeText(u.phone ?? u.email ?? "");
+                      toast.success("Contact copied.");
+                    }}
+                  />
+                  <Ctl
+                    danger
+                    label={u.blocked ? "Unfreeze" : "Freeze"}
+                    onClick={() =>
+                      void withBusy(u.userId, async () => {
+                        await updateUser({ userId: u.userId, blocked: !u.blocked });
+                        toast.success(u.blocked ? "Account unfrozen." : "Account frozen.");
+                      })
+                    }
+                  />
+                  {busy === u.userId ? (
+                    <div className="col-span-2 grid place-items-center rounded-xl glass-soft py-2.5">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </GlassCard>
+          );
+        })}
+        {filtered.length === 0 ? <p className="text-sm text-muted-foreground">No users match this filter.</p> : null}
+      </div>
+
+      {modal ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-sm">
+          <GlassCard className="animate-rise w-full max-w-sm">
+            <h3 className="font-display text-lg font-extrabold capitalize">
+              {modal.action === "plan" ? `Activate plan — ${modal.user.name}` : modal.action === "notify" ? `Message ${modal.user.name}` : `${modal.action.replace(/_/g, " ")} — ${modal.user.name}`}
+            </h3>
+            <div className="mt-4 space-y-3">
+              {modal.action === "plan" ? (
+                <select
+                  value={extra}
+                  onChange={(e) => setExtra(e.target.value)}
+                  className="h-12 w-full rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
+                >
+                  <option value="">Select plan…</option>
+                  {plans.map((p) => (
+                    <option key={p.slug} value={p.slug}>
+                      {p.name} — {money(p.minAmount)}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+              {modal.action === "notify" ? (
+                <textarea
+                  value={extra}
+                  onChange={(e) => setExtra(e.target.value)}
+                  placeholder="Message…"
+                  rows={3}
+                  className="w-full rounded-xl border border-input bg-background/40 p-3 text-sm outline-none"
+                />
+              ) : (
+                <input
+                  type="number"
+                  value={value}
+                  onChange={(e) => setValue(e.target.value)}
+                  placeholder={modal.action === "set" ? "New balance (PKR)" : "Amount (PKR)"}
+                  className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+                />
+              )}
+              {modal.action === "add" || modal.action === "deduct" ? (
+                <input
+                  value={extra}
+                  onChange={(e) => setExtra(e.target.value)}
+                  placeholder="Note (optional)"
+                  className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+                />
+              ) : null}
             </div>
             <div className="mt-5 flex gap-3">
-              <button
-                onClick={() => setAdjusting(null)}
-                className="btn-glass flex h-11 flex-1 items-center justify-center text-sm font-semibold text-foreground"
-              >
+              <button onClick={() => setModal(null)} className="btn-glass flex h-11 flex-1 items-center justify-center text-sm font-semibold text-foreground">
                 Cancel
               </button>
               <button
-                onClick={() => void doAdjust()}
-                disabled={busy}
+                onClick={() => void submitModal()}
+                disabled={busy === modal.user.userId}
                 className="btn-glass btn-glass-primary flex h-11 flex-1 items-center justify-center text-sm font-bold disabled:opacity-60"
               >
-                {busy ? "Saving…" : "Apply"}
+                {busy === modal.user.userId ? "Saving…" : "Apply"}
               </button>
             </div>
           </GlassCard>
@@ -365,383 +860,1169 @@ function UsersTab() {
   );
 }
 
-/* ============================== transactions ============================== */
+function Ctl({ label, onClick, danger }: { label: string; onClick: () => void; danger?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "rounded-xl px-2 py-2.5 text-[11px] font-bold transition",
+        danger ? "bg-destructive/15 text-destructive" : "glass-soft text-foreground hover:bg-accent",
+      )}
+    >
+      {label}
+    </button>
+  );
+}
 
-function TransactionsTab() {
-  const { transactions } = useAdminData();
+/* ============================== money desk ============================== */
+
+const isPending = (s: string) => s === "pending" || s === "processing";
+const isDone = (s: string) => s === "approved" || s === "completed";
+
+function CopyChip({ label, value }: { label: string; value: string }) {
+  const [done, setDone] = useState(false);
+  return (
+    <button
+      type="button"
+      onClick={async () => {
+        try {
+          await navigator.clipboard.writeText(value);
+          setDone(true);
+          toast.success(`${label} copied`);
+          setTimeout(() => setDone(false), 1400);
+        } catch {
+          toast.error("Copy failed");
+        }
+      }}
+      className="group flex min-w-0 items-center gap-2 rounded-xl border border-border/60 bg-background/40 px-3 py-2 text-left transition hover:border-primary/50"
+    >
+      <span className="min-w-0 flex-1">
+        <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{label}</span>
+        <span className="block truncate font-mono text-sm font-bold">{value}</span>
+      </span>
+      {done ? (
+        <Check className="h-4 w-4 shrink-0 text-success" />
+      ) : (
+        <Copy className="h-4 w-4 shrink-0 text-muted-foreground group-hover:text-primary" />
+      )}
+    </button>
+  );
+}
+
+function MoneyDesk({ kind, onViewProof }: { kind: "deposit" | "withdraw"; onViewProof: (url: string) => void }) {
+  const { transactions, users } = useAdminData();
   const review = useMutation(api.transactions.adminReviewTransaction);
-  const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("pending");
+  const [bucket, setBucket] = useState<"Pending" | "Approved" | "Rejected">("Pending");
+  const [q, setQ] = useState("");
+  const [selected, setSelected] = useState<string[]>([]);
+  const [busy, setBusy] = useState<string | null>(null);
 
-  const rows = transactions.filter((t) => {
-    if (typeFilter !== "all" && t.type !== typeFilter) return false;
-    if (statusFilter !== "all" && t.status !== statusFilter) return false;
-    return true;
-  });
+  const all = useMemo(() => transactions.filter((t) => t.type === kind), [transactions, kind]);
+
+  const counts = {
+    Pending: all.filter((t) => isPending(t.status)).length,
+    Approved: all.filter((t) => isDone(t.status)).length,
+    Rejected: all.filter((t) => t.status === "rejected").length,
+  };
+
+  const nameById = useMemo(() => new Map(users.map((u) => [u.userId, u.name])), [users]);
+  const phoneById = useMemo(() => new Map(users.map((u) => [u.userId, u.phone ?? ""])), [users]);
+
+  const rows = all
+    .filter((t) =>
+      bucket === "Pending" ? isPending(t.status) : bucket === "Approved" ? isDone(t.status) : t.status === "rejected",
+    )
+    .filter((t) => {
+      if (!q.trim()) return true;
+      const hay = `${nameById.get(t.userId) ?? ""} ${phoneById.get(t.userId) ?? ""} ${t.method ?? ""} ${t.reference ?? ""} ${t.amount}`;
+      return hay.toLowerCase().includes(q.trim().toLowerCase());
+    });
+
+  const total = rows.reduce((a, t) => a + t.amount, 0);
+  const approveStatus = kind === "deposit" ? "approved" : "completed";
+
+  const setStatus = async (id: string, approve: boolean) => {
+    setBusy(id);
+    try {
+      await review({ id: id as never, approve });
+      toast.success(approve ? "Approved." : "Declined.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Action failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const bulk = async (approve: boolean) => {
+    setBusy("bulk");
+    try {
+      for (const id of selected) await review({ id: id as never, approve });
+      toast.success(approve ? "Bulk approved." : "Bulk declined.");
+      setSelected([]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Bulk action failed");
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
+      <GlassCard className="relative overflow-hidden">
+        <div className="pointer-events-none absolute -right-14 -top-14 h-44 w-44 rounded-full bg-primary/25 blur-3xl" />
+        <div className="relative flex flex-wrap items-center gap-4">
+          <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-primary-foreground", kind === "deposit" ? "gradient-cool" : "gradient-brand")}>
+            {kind === "deposit" ? <ArrowDownToLine className="h-5 w-5" /> : <ArrowUpFromLine className="h-5 w-5" />}
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="font-display text-xl font-extrabold">{kind === "deposit" ? "Auto Deposit — MPay" : "Withdrawals"}</h2>
+            <p className="text-xs text-muted-foreground">
+              {rows.length} {bucket.toLowerCase()} · {money(total)} in view
+            </p>
+          </div>
+          <label className="flex h-11 min-w-[12rem] flex-1 items-center gap-2 rounded-2xl border border-border/60 bg-background/40 px-3">
+            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search user, phone, reference…"
+              className="w-full bg-transparent text-sm outline-none"
+            />
+          </label>
+        </div>
+      </GlassCard>
+
       <div className="flex flex-wrap gap-2">
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="h-11 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-        >
-          <option value="all">All types</option>
-          {["deposit", "withdraw", "investment", "commission", "bonus", "payout"].map((t) => (
-            <option key={t} value={t}>
-              {txTypeLabel(t)}
-            </option>
-          ))}
-        </select>
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-11 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-        >
-          {["pending", "processing", "approved", "completed", "rejected", "all"].map((s) => (
-            <option key={s} value={s}>
-              {s === "all" ? "All statuses" : statusLabel(s)}
-            </option>
-          ))}
-        </select>
+        {(["Pending", "Approved", "Rejected"] as const).map((b) => (
+          <button
+            key={b}
+            onClick={() => {
+              setBucket(b);
+              setSelected([]);
+            }}
+            className={cn(
+              "rounded-2xl px-4 py-2.5 text-sm font-bold transition",
+              bucket === b
+                ? b === "Pending"
+                  ? "bg-destructive text-destructive-foreground shadow-[var(--shadow-elegant)]"
+                  : "btn-glass btn-glass-primary shadow-[var(--shadow-elegant)]"
+                : "glass-soft text-muted-foreground",
+            )}
+          >
+            {b === "Pending" ? "Pending" : b === "Approved" ? "Successful" : "Declined"} ({counts[b]})
+          </button>
+        ))}
       </div>
 
-      <GlassCard className="p-2">
-        {rows.length === 0 ? (
-          <p className="p-4 text-sm text-muted-foreground">No transactions match.</p>
+      {bucket === "Pending" && rows.length > 0 ? (
+        <div className="glass flex flex-wrap items-center gap-2 rounded-2xl p-3">
+          <button
+            onClick={() => setSelected(selected.length === rows.length ? [] : rows.map((r) => r._id))}
+            className="btn-glass px-3 py-2 text-xs font-bold text-foreground"
+          >
+            {selected.length === rows.length ? "Clear" : "Select all"}
+          </button>
+          <span className="text-xs text-muted-foreground">{selected.length} selected</span>
+          <div className="ml-auto flex gap-2">
+            <button
+              disabled={!selected.length || busy === "bulk"}
+              onClick={() => void bulk(true)}
+              className="flex items-center gap-1.5 rounded-xl bg-success/15 px-4 py-2 text-xs font-bold text-success disabled:opacity-40"
+            >
+              <CheckCheck className="h-3.5 w-3.5" /> Approve selected
+            </button>
+            <button
+              disabled={!selected.length || busy === "bulk"}
+              onClick={() => void bulk(false)}
+              className="rounded-xl bg-destructive/15 px-4 py-2 text-xs font-bold text-destructive disabled:opacity-40"
+            >
+              Decline selected
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {rows.length === 0 ? (
+        <GlassCard className="p-10 text-center text-sm text-muted-foreground">Nothing here right now.</GlassCard>
+      ) : (
+        <div className="grid gap-3 xl:grid-cols-2">
+          {rows.map((t) => (
+            <MoneyCard
+              key={t._id}
+              tx={t}
+              kind={kind}
+              name={nameById.get(t.userId) ?? "Unknown"}
+              phone={phoneById.get(t.userId) ?? ""}
+              selectable={bucket === "Pending"}
+              checked={selected.includes(t._id)}
+              busy={busy === t._id}
+              onToggle={() => setSelected((s) => (s.includes(t._id) ? s.filter((x) => x !== t._id) : [...s, t._id]))}
+              onApprove={() => void setStatus(t._id, true)}
+              onReject={() => void setStatus(t._id, false)}
+              onViewProof={onViewProof}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function MoneyCard({
+  tx,
+  kind,
+  name,
+  phone,
+  selectable,
+  checked,
+  busy,
+  onToggle,
+  onApprove,
+  onReject,
+  onViewProof,
+}: {
+  tx: Doc<"transactions">;
+  kind: "deposit" | "withdraw";
+  name: string;
+  phone: string;
+  selectable: boolean;
+  checked: boolean;
+  busy: boolean;
+  onToggle: () => void;
+  onApprove: () => void;
+  onReject: () => void;
+  onViewProof: (url: string) => void;
+}) {
+  const parts = (tx.reference ?? "").split("·").map((p: string) => p.trim()).filter(Boolean);
+  const accountName = kind === "withdraw" ? parts[0] : undefined;
+  const accountNumber = kind === "withdraw" ? parts[1] : undefined;
+
+  return (
+    <GlassCard className={cn("relative overflow-hidden", checked && "ring-2 ring-primary/60")}>
+      <div className="flex items-start gap-3">
+        {selectable ? (
+          <input type="checkbox" aria-label="Select row" checked={checked} onChange={onToggle} className="mt-1.5 h-4 w-4 shrink-0 accent-[var(--primary)]" />
+        ) : null}
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/15 text-primary">
+          <User2 className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-bold">{name}</p>
+          <p className="truncate font-mono text-xs text-muted-foreground">{phone || "—"}</p>
+        </div>
+        <div className="shrink-0 text-right">
+          <p className="font-display text-lg font-black tabular-nums">{money(tx.amount)}</p>
+          <StatusBadge status={tx.status} />
+        </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+        <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 font-bold">
+          <Wallet className="h-3 w-3" /> {tx.method || "—"}
+        </span>
+        {(tx.note ?? "").toLowerCase().includes("mpay") ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 font-black text-success">MPay</span>
+        ) : null}
+        <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-muted-foreground">
+          <Hash className="h-3 w-3" /> {fmtDateTime(tx.createdAt)}
+        </span>
+      </div>
+
+      <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        {kind === "withdraw" ? (
+          <>
+            <CopyChip label="Account title" value={accountName || name} />
+            <CopyChip label="Account number" value={accountNumber || tx.reference || "—"} />
+          </>
         ) : (
-          rows.slice(0, 80).map((t) => (
-            <div key={t._id} className="flex flex-wrap items-center gap-3 border-b border-border/40 p-3 last:border-0">
-              <div className="min-w-0 flex-1">
-                <p className="flex flex-wrap items-center gap-2 text-sm font-bold">
-                  {txTypeLabel(t.type)} · {money(t.amount)}
-                  <StatusBadge status={t.status} />
-                </p>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {fmtDateTime(t.createdAt)} · {t.method || "—"}
-                  {t.note ? ` · ${t.note}` : ""}
-                </p>
-                {t.proofUrl ? (
-                  <img src={t.proofUrl} alt="proof" className="mt-1.5 h-16 w-16 rounded-xl object-cover ring-1 ring-border" />
-                ) : null}
-              </div>
-              {(t.status === "pending" || t.status === "processing") &&
-              (t.type === "deposit" || t.type === "withdraw") ? (
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    onClick={() => void review({ id: t._id, approve: true })}
-                    className="flex items-center gap-1 rounded-xl bg-success/15 px-3 py-2 text-xs font-bold text-success transition hover:bg-success/25"
-                  >
-                    <CheckCircle2 className="h-4 w-4" /> Approve
-                  </button>
-                  <button
-                    onClick={() => void review({ id: t._id, approve: false })}
-                    className="flex items-center gap-1 rounded-xl bg-destructive/15 px-3 py-2 text-xs font-bold text-destructive transition hover:bg-destructive/25"
-                  >
-                    <XCircle className="h-4 w-4" /> Reject
-                  </button>
-                </div>
-              ) : null}
+          <CopyChip label="Reference" value={tx.reference || "—"} />
+        )}
+      </div>
+
+      {tx.proofUrl ? (
+        <button
+          onClick={() => tx.proofUrl && onViewProof(tx.proofUrl)}
+          className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-border/60 bg-background/40 p-2 text-left transition hover:border-primary/50"
+        >
+          <img src={tx.proofUrl} alt="Payment proof" loading="lazy" className="h-12 w-12 rounded-xl object-cover" />
+          <span className="flex items-center gap-1 text-xs font-bold text-primary">
+            <ImageIcon className="h-3.5 w-3.5" /> View payment proof
+          </span>
+        </button>
+      ) : null}
+
+      {isPending(tx.status) ? (
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button
+            onClick={onApprove}
+            disabled={busy}
+            className="rounded-xl bg-success/15 py-2.5 text-xs font-black text-success transition hover:bg-success/25 disabled:opacity-50"
+          >
+            Approve
+          </button>
+          <button
+            onClick={onReject}
+            disabled={busy}
+            className="rounded-xl bg-destructive/15 py-2.5 text-xs font-black text-destructive transition hover:bg-destructive/25 disabled:opacity-50"
+          >
+            Decline
+          </button>
+        </div>
+      ) : null}
+    </GlassCard>
+  );
+}
+
+/* ============================== payment methods ============================== */
+
+function MethodsManager() {
+  const { methods } = useHope();
+  const upsert = useMutation(api.admin.adminUpsertPaymentMethod);
+  const remove = useMutation(api.admin.adminDeletePaymentMethod);
+  const uploader = useUploader();
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const patch = (id: Id<"paymentMethods">, key: string, value: unknown) =>
+    upsert({
+      id,
+      name: methods.find((m) => m._id === id)?.name ?? "",
+      kind: methods.find((m) => m._id === id)?.kind ?? "wallet",
+      accountName: methods.find((m) => m._id === id)?.accountName ?? "",
+      accountNumber: methods.find((m) => m._id === id)?.accountNumber ?? "",
+      imageUrl: methods.find((m) => m._id === id)?.imageUrl,
+      instructions: methods.find((m) => m._id === id)?.instructions ?? "",
+      active: methods.find((m) => m._id === id)?.active ?? true,
+      sortOrder: methods.find((m) => m._id === id)?.sortOrder ?? 0,
+      ...(key === "name" ? { name: value as string } : {}),
+      ...(key === "accountName" ? { accountName: value as string } : {}),
+      ...(key === "accountNumber" ? { accountNumber: value as string } : {}),
+      ...(key === "instructions" ? { instructions: value as string } : {}),
+      ...(key === "imageUrl" ? { imageUrl: value as string | undefined } : {}),
+      ...(key === "active" ? { active: value as boolean } : {}),
+    }).catch((e) => toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Update failed"));
+
+  const pickLogo = async (id: Id<"paymentMethods">, file: File) => {
+    setBusy(id);
+    try {
+      const url = await uploader(file);
+      await patch(id, "imageUrl", url);
+      toast.success("Logo updated.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Upload failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <button
+        onClick={async () => {
+          const name = prompt("Method name (e.g. Easypaisa)");
+          if (!name) return;
+          setBusy("new");
+          try {
+            await upsert({
+              name,
+              kind: "wallet",
+              accountName: "HopeX Payments",
+              accountNumber: "0000000000",
+              instructions: `Send the exact amount to the ${name} account above, then upload your screenshot.`,
+              active: true,
+              sortOrder: methods.length,
+            });
+            toast.success("Payment method added.");
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not add method");
+          } finally {
+            setBusy(null);
+          }
+        }}
+        className="btn-glass btn-glass-primary inline-flex h-11 items-center px-5 text-sm font-bold"
+      >
+        <Plus className="mr-2 h-4 w-4" /> Add payment method
+      </button>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {methods.map((m) => (
+          <GlassCard key={m._id} className="space-y-3">
+            <div className="flex items-center gap-3">
+              {m.imageUrl ? (
+                <img src={m.imageUrl} alt={m.name} className="h-12 w-12 rounded-xl object-cover" />
+              ) : (
+                <span className="grid h-12 w-12 place-items-center rounded-xl gradient-cool text-sm font-black text-primary-foreground">
+                  {m.name[0]}
+                </span>
+              )}
+              <input
+                defaultValue={m.name}
+                onBlur={(e) => e.target.value !== m.name && void patch(m._id, "name", e.target.value)}
+                className="h-11 flex-1 rounded-xl border border-input bg-background/40 px-3 text-sm font-semibold outline-none"
+              />
+              <StatusBadge status={m.active ? "approved" : "rejected"} />
             </div>
-          ))
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <input
+                defaultValue={m.accountName}
+                onBlur={(e) => e.target.value !== m.accountName && void patch(m._id, "accountName", e.target.value)}
+                placeholder="Account title"
+                className="h-11 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
+              />
+              <input
+                defaultValue={m.accountNumber}
+                onBlur={(e) => e.target.value !== m.accountNumber && void patch(m._id, "accountNumber", e.target.value)}
+                placeholder="Account number"
+                className="h-11 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
+              />
+            </div>
+
+            <textarea
+              defaultValue={m.instructions}
+              onBlur={(e) => e.target.value !== m.instructions && void patch(m._id, "instructions", e.target.value)}
+              rows={2}
+              placeholder="Instructions shown in the payment gateway"
+              className="w-full rounded-xl border border-input bg-background/40 p-3 text-sm outline-none"
+            />
+
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="cursor-pointer rounded-lg glass-soft px-3 py-2 text-xs font-semibold">
+                {busy === m._id ? "Uploading…" : "Upload logo"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  disabled={busy === m._id}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void pickLogo(m._id, f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              <button
+                onClick={() => void patch(m._id, "active", !m.active)}
+                className="rounded-lg glass-soft px-3 py-2 text-xs font-semibold"
+              >
+                {m.active ? "Disable" : "Enable"}
+              </button>
+              <button
+                onClick={() => {
+                  if (confirm(`Delete ${m.name}?`)) void remove({ id: m._id }).then(() => toast.success("Deleted."));
+                }}
+                className="rounded-lg bg-destructive/15 px-3 py-2 text-xs font-semibold text-destructive"
+              >
+                Delete
+              </button>
+            </div>
+          </GlassCard>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ============================== plans manager ============================== */
+
+function PlanEditor({
+  plan,
+  onSave,
+  onCancel,
+}: {
+  plan: { name: string; price: number; daily: number; days: number };
+  onSave: (v: { name: string; price: number; daily: number; days: number }) => void;
+  onCancel: () => void;
+}) {
+  const [name, setName] = useState(plan.name);
+  const [price, setPrice] = useState(String(plan.price));
+  const [daily, setDaily] = useState(String(plan.daily));
+  const [days, setDays] = useState(String(plan.days));
+
+  const p = Number(price) || 0;
+  const d = Number(daily) || 0;
+  const n = Number(days) || 0;
+  const total = d * n;
+
+  const field = "h-11 w-full rounded-xl border border-input bg-background/40 px-3 text-sm outline-none focus:ring-2 focus:ring-ring";
+
+  return (
+    <GlassCard className="space-y-3">
+      <div>
+        <label className="text-[11px] uppercase tracking-widest text-muted-foreground">Plan name</label>
+        <input value={name} onChange={(e) => setName(e.target.value)} className={field} />
+      </div>
+      <div className="grid grid-cols-3 gap-2">
+        <div>
+          <label className="text-[11px] uppercase tracking-widest text-muted-foreground">Price</label>
+          <input value={price} onChange={(e) => setPrice(e.target.value)} type="number" className={field} />
+        </div>
+        <div>
+          <label className="text-[11px] uppercase tracking-widest text-muted-foreground">Daily income</label>
+          <input value={daily} onChange={(e) => setDaily(e.target.value)} type="number" className={field} />
+        </div>
+        <div>
+          <label className="text-[11px] uppercase tracking-widest text-muted-foreground">Days</label>
+          <input value={days} onChange={(e) => setDays(e.target.value)} type="number" className={field} />
+        </div>
+      </div>
+      <div className="rounded-xl glass-soft p-3 text-sm">
+        <div className="flex justify-between">
+          <span className="text-muted-foreground">Total return (auto)</span>
+          <span className="font-bold text-success">{money(total)}</span>
+        </div>
+        <div className="mt-1 flex justify-between">
+          <span className="text-muted-foreground">Net profit</span>
+          <span className="font-semibold">{money(total - p)}</span>
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <button onClick={onCancel} className="flex-1 rounded-xl glass-soft py-2.5 text-sm font-semibold">
+          Cancel
+        </button>
+        <button
+          onClick={() => {
+            if (!name.trim() || p <= 0 || d <= 0 || n <= 0) return toast.error("Fill name, price, daily income and days.");
+            onSave({ name: name.trim(), price: p, daily: d, days: n });
+          }}
+          className="flex-1 rounded-xl gradient-brand py-2.5 text-sm font-bold text-primary-foreground"
+        >
+          Save plan
+        </button>
+      </div>
+    </GlassCard>
+  );
+}
+
+function PlansManager() {
+  const { plans } = useAdminData();
+  const upsert = useMutation(api.plans.adminUpsertPlan);
+  const remove = useMutation(api.plans.adminDeletePlan);
+  const [editing, setEditing] = useState<{ id?: string; name: string; price: number; daily: number; days: number } | null>(null);
+  const [creating, setCreating] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  const save = async (v: { name: string; price: number; daily: number; days: number }, id?: string) => {
+    setBusy(true);
+    try {
+      const slug = v.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "plan";
+      await upsert({
+        id: id as never,
+        slug,
+        name: v.name,
+        minAmount: v.price,
+        maxAmount: v.price,
+        dailyRoi: round2((v.daily / v.price) * 100),
+        durationDays: v.days,
+        features: ["Daily payouts", "Principal returned"],
+        active: true,
+        sortOrder: 1,
+      });
+      toast.success("Plan saved.");
+      setEditing(null);
+      setCreating(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not save plan");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {!creating ? (
+        <button onClick={() => setCreating(true)} className="rounded-xl gradient-brand px-5 py-2.5 text-sm font-semibold text-primary-foreground">
+          + Add plan
+        </button>
+      ) : (
+        <div className="max-w-md">
+          <PlanEditor
+            plan={{ name: "", price: 1000, daily: 50, days: 30 }}
+            onCancel={() => setCreating(false)}
+            onSave={(v) => void save(v)}
+          />
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {plans.map((p) => {
+          const daily = planDaily(p);
+          if (editing?.id === p._id) {
+            return (
+              <PlanEditor
+                key={p._id}
+                plan={{ name: p.name, price: p.minAmount, daily, days: p.durationDays }}
+                onCancel={() => setEditing(null)}
+                onSave={(v) => void save(v, p._id)}
+              />
+            );
+          }
+          return (
+            <GlassCard key={p._id}>
+              <div className="flex items-start justify-between gap-3">
+                <h3 className="font-display text-lg font-extrabold">{p.name}</h3>
+                <StatusBadge status={p.active ? "approved" : "rejected"} />
+              </div>
+              <div className="mt-3 space-y-1.5 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Price</span>
+                  <span className="font-semibold">{money(p.minAmount)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Daily income</span>
+                  <span className="font-semibold text-success">{money(daily)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Days</span>
+                  <span className="font-semibold">{p.durationDays}</span>
+                </div>
+                <div className="flex justify-between border-t border-border/50 pt-1.5">
+                  <span className="text-muted-foreground">Total return</span>
+                  <span className="font-bold text-gold">{money(round2(daily * p.durationDays))}</span>
+                </div>
+              </div>
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={() => setEditing({ id: p._id, name: p.name, price: p.minAmount, daily, days: p.durationDays })}
+                  className="flex-1 rounded-lg glass-soft py-2 text-xs font-semibold"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() =>
+                    void upsert({
+                      id: p._id,
+                      slug: p.slug,
+                      name: p.name,
+                      minAmount: p.minAmount,
+                      maxAmount: p.maxAmount,
+                      dailyRoi: p.dailyRoi,
+                      durationDays: p.durationDays,
+                      features: p.features,
+                      active: !p.active,
+                      sortOrder: p.sortOrder,
+                    }).then(() => toast.success("Plan updated."))
+                  }
+                  className="flex-1 rounded-lg glass-soft py-2 text-xs font-semibold"
+                >
+                  {p.active ? "Disable" : "Enable"}
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm(`Delete ${p.name}?`)) void remove({ id: p._id }).then(() => toast.success("Deleted."));
+                  }}
+                  className="flex-1 rounded-lg bg-destructive/15 py-2 text-xs font-semibold text-destructive"
+                >
+                  Delete
+                </button>
+              </div>
+              {busy ? <p className="mt-2 text-center text-[11px] text-muted-foreground">Saving…</p> : null}
+            </GlassCard>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ============================== promo codes ============================== */
+
+function PromoCodesPanel() {
+  const { promos } = useAdminData();
+  const upsert = useMutation(api.promoCodes.adminUpsertPromo);
+  const remove = useMutation(api.promoCodes.adminDeletePromo);
+  const [code, setCode] = useState("");
+  const [type, setType] = useState<"percent" | "fixed">("percent");
+  const [value, setValue] = useState("5");
+  const [limit, setLimit] = useState("100");
+  const [busy, setBusy] = useState(false);
+
+  return (
+    <div className="space-y-4">
+      <button
+        onClick={async () => {
+          const c = code.trim().toUpperCase();
+          if (!c) return toast.error("Enter a code");
+          setBusy(true);
+          try {
+            await upsert({ code: c, type, value: Number(value) || 0, usageLimit: Number(limit) || 100, active: true });
+            toast.success("Promo code created.");
+            setCode("");
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not create code");
+          } finally {
+            setBusy(false);
+          }
+        }}
+        className="rounded-xl gradient-brand px-5 py-2.5 text-sm font-semibold text-primary-foreground"
+      >
+        + New promo code
+      </button>
+
+      <div className="flex flex-wrap items-end gap-2">
+        <input
+          value={code}
+          onChange={(e) => setCode(e.target.value.toUpperCase())}
+          placeholder="CODE"
+          className="h-11 w-40 rounded-xl border border-input bg-background/40 px-3 text-sm uppercase outline-none"
+        />
+        <select value={type} onChange={(e) => setType(e.target.value as "percent" | "fixed")} className="h-11 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none">
+          <option value="percent">percent</option>
+          <option value="fixed">fixed</option>
+        </select>
+        <input
+          type="number"
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          placeholder="Value"
+          className="h-11 w-24 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
+        />
+        <input
+          type="number"
+          value={limit}
+          onChange={(e) => setLimit(e.target.value)}
+          placeholder="Limit"
+          className="h-11 w-24 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {promos.map((p) => (
+          <GlassCard key={p._id}>
+            <div className="flex items-center justify-between gap-3">
+              <p className="font-display text-lg font-extrabold text-gold">{p.code}</p>
+              <StatusBadge status={p.active ? "approved" : "rejected"} />
+            </div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {p.type === "percent" ? `${p.value}% bonus` : `${money(p.value)} bonus`} · used {p.used}/{p.usageLimit}
+            </p>
+            <button
+              onClick={() =>
+                void upsert({
+                  id: p._id,
+                  code: p.code,
+                  type: p.type,
+                  value: p.value,
+                  usageLimit: p.usageLimit,
+                  expiresAt: p.expiresAt,
+                  active: !p.active,
+                }).then(() => toast.success("Updated."))
+              }
+              className="mt-4 w-full rounded-lg glass-soft py-2 text-xs font-semibold"
+            >
+              {p.active ? "Disable" : "Enable"}
+            </button>
+            <button
+              onClick={() => {
+                if (confirm(`Delete ${p.code}?`)) void remove({ id: p._id }).then(() => toast.success("Deleted."));
+              }}
+              className="mt-2 w-full rounded-lg bg-destructive/15 py-2 text-xs font-semibold text-destructive"
+            >
+              Delete
+            </button>
+          </GlassCard>
+        ))}
+        {busy ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : null}
+      </div>
+    </div>
+  );
+}
+
+/* ============================== leader plans ============================== */
+
+function LeaderPlansPanel() {
+  const { leaderPlans, users, plans } = useAdminData();
+  const activate = useMutation(api.leaderPlans.adminActivateLeaderPlan);
+  const remove = useMutation(api.leaderPlans.adminRemoveLeaderPlan);
+  const runChecks = useMutation(api.leaderPlans.runLeaderPlanChecks);
+  const [phone, setPhone] = useState("");
+  const [target, setTarget] = useState<string | null>(null);
+  const [planId, setPlanId] = useState("");
+  const [amount, setAmount] = useState("");
+  const [hours, setHours] = useState("24");
+  const [required, setRequired] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const user = useMemo(() => users.find((u) => u.userId === target) ?? null, [users, target]);
+
+  const find = () => {
+    const digits = phone.replace(/\D/g, "");
+    if (!digits) return toast.error("Enter a phone number.");
+    const match = users.find((u) => (u.phone ?? "").replace(/\D/g, "").endsWith(digits.slice(-10)) && u.role === "user");
+    if (!match) return toast.error("No user found with that number.");
+    setTarget(match.userId);
+    toast.success(`${match.name} loaded.`);
+  };
+
+  const doActivate = async () => {
+    if (!user) return;
+    const plan = plans.find((p) => p.slug === planId);
+    if (!plan) return toast.error("Select a plan.");
+    setBusy(true);
+    try {
+      await activate({
+        userId: user.userId,
+        planId: plan.slug,
+        amount: Number(amount) || plan.minAmount,
+        checkHours: Math.max(1, Number(hours) || 24),
+        requiredInvestment: Number(required) || 0,
+      });
+      toast.success(`${plan.name} activated for ${user.name}.`);
+      setTarget(null);
+      setPhone("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Activation failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doRunChecks = async () => {
+    setBusy(true);
+    try {
+      const removed = await runChecks();
+      toast.success(`Requirement checks executed — ${removed} expired.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Checks failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <GlassCard className="p-5">
+        <div className="flex items-center gap-3">
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-gold/20 text-gold">
+            <Crown className="h-5 w-5" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-lg font-extrabold">Leader plan</p>
+            <p className="text-xs text-muted-foreground">Admin-granted plan. No referral commission is paid to the upline.</p>
+          </div>
+          <button onClick={doRunChecks} disabled={busy} className="btn-glass flex h-10 shrink-0 items-center gap-2 px-3 text-xs font-bold text-foreground">
+            <RefreshCw className={cn("h-3.5 w-3.5", busy && "animate-spin")} /> Run checks
+          </button>
+        </div>
+
+        <div className="mt-4 flex gap-2">
+          <div className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-input bg-background/40 px-3">
+            <Phone className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="User phone number" className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+          </div>
+          <button onClick={find} className="btn-glass btn-glass-primary flex h-11 shrink-0 items-center gap-2 px-4 text-sm font-bold">
+            <Search className="h-4 w-4" /> Find
+          </button>
+        </div>
+
+        {user ? (
+          <div className="mt-4 rounded-2xl glass-soft p-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl gradient-cool text-xs font-black text-primary-foreground">
+                {initials(user.name)}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold">{user.name}</p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {user.phone} · {user.referralCode}
+                </p>
+              </div>
+              <div className="flex gap-2 text-center">
+                {(
+                  [
+                    ["Balance", money(user.balance)],
+                    ["Invested", money(user.invested)],
+                    ["Team", String(users.filter((u) => u.referredBy === user.referralCode).length)],
+                  ] as const
+                ).map(([l, v]) => (
+                  <div key={l} className="rounded-xl bg-background/50 px-3 py-1.5">
+                    <p className="text-[9px] uppercase tracking-widest text-muted-foreground">{l}</p>
+                    <p className="text-[11px] font-bold">{v}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <label className="block">
+                <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Plan</span>
+                <select
+                  value={planId}
+                  onChange={(e) => {
+                    setPlanId(e.target.value);
+                    const p = plans.find((x) => x.slug === e.target.value);
+                    if (p) setAmount(String(p.minAmount));
+                  }}
+                  className="mt-1 h-11 w-full rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
+                >
+                  <option value="">Select plan…</option>
+                  {plans.map((p) => (
+                    <option key={p.slug} value={p.slug}>
+                      {p.name} — {money(p.minAmount)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Field label="Amount (Rs)" value={amount} onChange={setAmount} />
+              <Field label="Check after (hours)" value={hours} onChange={setHours} />
+              <Field label="Required L1 investment" value={required} onChange={setRequired} />
+            </div>
+
+            <button
+              onClick={doActivate}
+              disabled={busy}
+              className="btn-glass btn-glass-gold mt-3 flex h-11 w-full items-center justify-center gap-2 text-sm font-bold disabled:opacity-60"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Crown className="h-4 w-4" />}
+              Activate leader plan
+            </button>
+          </div>
+        ) : null}
+      </GlassCard>
+
+      <GlassCard className="p-5">
+        <p className="font-display text-lg font-extrabold">Granted leader plans</p>
+        {leaderPlans.length === 0 ? (
+          <p className="mt-3 text-sm text-muted-foreground">No leader plans yet.</p>
+        ) : (
+          <div className="mt-3 divide-y divide-border/40">
+            {leaderPlans.map((p) => {
+              const owner = users.find((u) => u.userId === p.userId);
+              const left = p.deadlineAt - Date.now();
+              return (
+                <div key={p._id} className="flex flex-wrap items-center gap-3 py-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-bold">
+                      {owner?.name ?? "User"} · {p.planName}
+                    </p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {money(p.amount)} · needs {money(p.requiredInvestment)} L1 ·{" "}
+                      {left > 0 ? `${Math.ceil(left / 3600000)}h left` : fmtDateTime(p.deadlineAt)}
+                    </p>
+                  </div>
+                  <span
+                    className={cn(
+                      "shrink-0 rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase",
+                      p.status === "active"
+                        ? "bg-primary/15 text-primary"
+                        : p.status === "passed"
+                          ? "bg-success/15 text-success"
+                          : "bg-destructive/15 text-destructive",
+                    )}
+                  >
+                    {p.status}
+                  </span>
+                  {p.status === "active" ? (
+                    <button
+                      onClick={() => void remove({ id: p._id }).then(() => toast.success("Removed."))}
+                      className="btn-glass flex h-9 shrink-0 items-center gap-1.5 px-3 text-xs font-bold text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Remove
+                    </button>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
         )}
       </GlassCard>
     </div>
   );
 }
 
-/* ============================== plans & promos ============================== */
+/* ============================== balance control ============================== */
 
-const EMPTY_PLAN = {
-  slug: "",
-  name: "",
-  minAmount: 1000,
-  maxAmount: 50000,
-  dailyRoi: 1.2,
-  durationDays: 30,
-  features: "Daily payouts",
-  active: true,
-  sortOrder: 1,
-};
-
-function PlansTab() {
-  const { plans, promos } = useAdminData();
-  const upsertPlan = useMutation(api.plans.adminUpsertPlan);
-  const deletePlan = useMutation(api.plans.adminDeletePlan);
-  const upsertPromo = useMutation(api.promoCodes.adminUpsertPromo);
-  const deletePromo = useMutation(api.promoCodes.adminDeletePromo);
-  const [editing, setEditing] = useState<typeof EMPTY_PLAN & { id?: string } | null>(null);
-  const [promo, setPromo] = useState<{ id?: string; code: string; type: "percent" | "fixed"; value: string; usageLimit: string; active: boolean }>({
-    code: "",
-    type: "percent",
-    value: "10",
-    usageLimit: "100",
-    active: true,
-  });
-
-  const savePlan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editing) return;
-    if (!editing.slug.trim() || !editing.name.trim()) return toast.error("Slug and name are required");
-    setBusy(true);
-    try {
-      await upsertPlan({
-        id: editing.id as never,
-        slug: editing.slug.trim(),
-        name: editing.name.trim(),
-        minAmount: Number(editing.minAmount),
-        maxAmount: Number(editing.maxAmount),
-        dailyRoi: Number(editing.dailyRoi),
-        durationDays: Number(editing.durationDays),
-        features: editing.features.split(",").map((s) => s.trim()).filter(Boolean),
-        active: editing.active,
-        sortOrder: Number(editing.sortOrder),
-      });
-      toast.success("Plan saved.");
-      setEditing(null);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message.replace(/^.*?:\s*/, "") : "Could not save plan");
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const savePromo = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!promo.code.trim()) return toast.error("Enter a code");
-    setBusy(true);
-    try {
-      await upsertPromo({
-        id: promo.id as never,
-        code: promo.code,
-        type: promo.type,
-        value: Number(promo.value),
-        usageLimit: Number(promo.usageLimit),
-        active: promo.active,
-      });
-      toast.success("Promo code saved.");
-      setPromo({ code: "", type: "percent", value: "10", usageLimit: "100", active: true });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message.replace(/^.*?:\s*/, "") : "Could not save promo");
-    } finally {
-      setBusy(false);
-    }
-  };
-
+function BalanceControl() {
+  const { users } = useAdminData();
+  const adjust = useMutation(api.admin.adminAdjustBalance);
+  const [q, setQ] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const rows = users
+    .filter((u) => u.role === "user")
+    .filter((u) => (q.trim() ? `${u.name} ${u.phone ?? ""} ${u.referralCode}`.toLowerCase().includes(q.toLowerCase()) : false))
+    .slice(0, 12);
+
+  const adjustBalance = async (id: Id<"users">, kind: "deposit" | "withdraw") => {
+    const raw = prompt(`${kind === "deposit" ? "Add to" : "Deduct from"} balance (Rs)`, "1000");
+    const v = Number(raw);
+    if (!v || v <= 0) return;
+    const note = prompt("Note (optional)") ?? "";
+    setBusy(true);
+    try {
+      await adjust({ userId: id, amount: v, kind, note: note || undefined });
+      toast.success(kind === "deposit" ? "Balance credited." : "Balance deducted.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <div className="space-y-4">
-      {/* Plans */}
-      <GlassCard className="p-2">
-        <div className="flex items-center justify-between gap-2 p-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Plans</p>
-          <button onClick={() => setEditing({ ...EMPTY_PLAN })} className="btn-glass btn-glass-primary h-9 px-4 text-xs font-bold">
-            + New plan
-          </button>
+    <GlassCard className="p-5">
+      <div className="flex items-center gap-3">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/15 text-primary">
+          <Wallet className="h-5 w-5" />
+        </span>
+        <div className="min-w-0">
+          <p className="font-display text-lg font-extrabold">Balance control</p>
+          <p className="text-xs text-muted-foreground">Credits post as a deposit, deductions post as a withdrawal.</p>
         </div>
-        {plans.map((p) => (
-          <div key={p.slug} className="flex flex-wrap items-center gap-3 border-t border-border/40 p-3">
+      </div>
+
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search user by name, phone or code…"
+        className="mt-4 h-11 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+      />
+
+      <div className="mt-3 divide-y divide-border/40">
+        {rows.map((u) => (
+          <div key={u.userId} className="flex flex-wrap items-center gap-3 py-3">
             <div className="min-w-0 flex-1">
-              <p className="flex flex-wrap items-center gap-2 text-sm font-bold">
-                {p.name}
-                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold text-primary">{p.slug}</span>
-                {!p.active ? <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">hidden</span> : null}
-              </p>
-              <p className="truncate text-[11px] text-muted-foreground">
-                Rs {p.minAmount.toLocaleString()} – {p.maxAmount.toLocaleString()} · {p.dailyRoi}%/day · {p.durationDays}d
+              <p className="truncate text-sm font-bold">{u.name}</p>
+              <p className="truncate text-xs text-muted-foreground">
+                {u.phone} · {money(u.balance)}
               </p>
             </div>
-            <button
-              onClick={() =>
-                setEditing({
-                  id: p._id,
-                  slug: p.slug,
-                  name: p.name,
-                  minAmount: p.minAmount,
-                  maxAmount: p.maxAmount,
-                  dailyRoi: p.dailyRoi,
-                  durationDays: p.durationDays,
-                  features: p.features.join(", "),
-                  active: p.active,
-                  sortOrder: p.sortOrder,
-                })
-              }
-              className="rounded-xl border border-border px-3 py-1.5 text-xs font-semibold transition hover:bg-accent"
-            >
-              Edit
+            <button onClick={() => void adjustBalance(u.userId, "deposit")} disabled={busy} className="btn-glass btn-glass-primary h-9 shrink-0 px-3 text-xs font-bold disabled:opacity-60">
+              Add
+            </button>
+            <button onClick={() => void adjustBalance(u.userId, "withdraw")} disabled={busy} className="btn-glass h-9 shrink-0 px-3 text-xs font-bold text-destructive disabled:opacity-60">
+              Deduct
             </button>
           </div>
         ))}
-      </GlassCard>
-
-      {/* Promos */}
-      <GlassCard className="p-2">
-        <p className="p-3 text-xs font-bold uppercase tracking-widest text-muted-foreground">Promo codes</p>
-        <div className="border-t border-border/40 p-3">
-          <form onSubmit={savePromo} className="grid gap-2 sm:grid-cols-[1fr_auto_auto_auto_auto]">
-            <input
-              value={promo.code}
-              onChange={(e) => setPromo({ ...promo, code: e.target.value.toUpperCase() })}
-              placeholder="CODE"
-              className="h-11 rounded-xl border border-input bg-background/40 px-3 text-sm uppercase outline-none focus:ring-2 focus:ring-ring"
-            />
-            <select
-              value={promo.type}
-              onChange={(e) => setPromo({ ...promo, type: e.target.value as "percent" | "fixed" })}
-              className="h-11 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
-            >
-              <option value="percent">percent</option>
-              <option value="fixed">fixed</option>
-            </select>
-            <input
-              type="number"
-              value={promo.value}
-              onChange={(e) => setPromo({ ...promo, value: e.target.value })}
-              placeholder="Value"
-              className="h-11 w-24 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
-            />
-            <input
-              type="number"
-              value={promo.usageLimit}
-              onChange={(e) => setPromo({ ...promo, usageLimit: e.target.value })}
-              placeholder="Limit"
-              className="h-11 w-24 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
-            />
-            <button className="btn-glass btn-glass-primary h-11 px-4 text-sm font-bold">Save</button>
-          </form>
-        </div>
-        {promos.map((p) => (
-          <div key={p._id} className="flex items-center gap-3 border-t border-border/40 p-3 text-sm">
-            <span className="min-w-0 flex-1">
-              <span className="font-bold tracking-wider">{p.code}</span>
-              <span className="ml-2 text-xs text-muted-foreground">
-                {p.type === "percent" ? `${p.value}%` : money(p.value)} · {p.used}/{p.usageLimit} used ·{" "}
-                {p.active ? "active" : "inactive"}
-              </span>
-            </span>
-            <button onClick={() => void deletePromo({ id: p._id })} className="text-xs font-semibold text-destructive">
-              Delete
-            </button>
-          </div>
-        ))}
-      </GlassCard>
-
-      {editing ? (
-        <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-background/70 p-4 backdrop-blur-sm">
-          <GlassCard className="animate-rise my-8 w-full max-w-md">
-            <h3 className="font-display text-lg font-extrabold">{editing.id ? "Edit plan" : "New plan"}</h3>
-            <form onSubmit={savePlan} className="mt-4 grid gap-3">
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Slug" value={editing.slug} onChange={(v) => setEditing({ ...editing, slug: v })} />
-                <Field label="Name" value={editing.name} onChange={(v) => setEditing({ ...editing, name: v })} />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Field label="Min (PKR)" value={String(editing.minAmount)} onChange={(v) => setEditing({ ...editing, minAmount: Number(v) })} />
-                <Field label="Max (PKR)" value={String(editing.maxAmount)} onChange={(v) => setEditing({ ...editing, maxAmount: Number(v) })} />
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <Field label="Daily ROI %" value={String(editing.dailyRoi)} onChange={(v) => setEditing({ ...editing, dailyRoi: Number(v) })} />
-                <Field label="Days" value={String(editing.durationDays)} onChange={(v) => setEditing({ ...editing, durationDays: Number(v) })} />
-                <Field label="Sort" value={String(editing.sortOrder)} onChange={(v) => setEditing({ ...editing, sortOrder: Number(v) })} />
-              </div>
-              <Field label="Features (comma separated)" value={editing.features} onChange={(v) => setEditing({ ...editing, features: v })} />
-              <label className="flex items-center gap-2 text-sm font-semibold">
-                <input
-                  type="checkbox"
-                  checked={editing.active}
-                  onChange={(e) => setEditing({ ...editing, active: e.target.checked })}
-                  className="h-4 w-4"
-                />
-                Active (visible to investors)
-              </label>
-              <div className="flex gap-3">
-                <button type="button" onClick={() => setEditing(null)} className="btn-glass flex h-11 flex-1 items-center justify-center text-sm font-semibold text-foreground">
-                  Cancel
-                </button>
-                <button type="submit" disabled={busy} className="btn-glass btn-glass-primary flex h-11 flex-1 items-center justify-center text-sm font-bold disabled:opacity-60">
-                  {busy ? "Saving…" : "Save plan"}
-                </button>
-              </div>
-            </form>
-          </GlassCard>
-        </div>
-      ) : null}
-    </div>
+        {q.trim() && rows.length === 0 ? <p className="py-4 text-sm text-muted-foreground">No matching user.</p> : null}
+      </div>
+    </GlassCard>
   );
 }
 
-/* ============================== chat ============================== */
+/* ============================== support chat ============================== */
 
-function ChatTab() {
-  const { threads } = useAdminData();
+const EMOJIS = ["👍", "🙏", "✅", "❌", "🔥", "💰", "📈", "🎉", "😀", "😎", "🤝", "💎", "⏳", "🧾", "🏦", "💯"];
+const CANNED = [
+  "Assalam o Alaikum! HopeX support here — how can I help you today?",
+  "Your deposit has been verified and credited ✅",
+  "Please share a clear payment screenshot so we can verify it.",
+  "Withdrawals are processed between 8:00 AM and 8:00 PM (PKT) once a plan is active.",
+  "Your request has been forwarded to the finance team.",
+  "Thank you for your patience — this is now resolved.",
+];
+
+function SupportChatPanel() {
+  const { threads, users } = useAdminData();
   const reply = useMutation(api.chat.adminReply);
-  const [activeUserId, setActiveUserId] = useState<string | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [text, setText] = useState("");
+  const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [emoji, setEmoji] = useState(false);
+  const [canned, setCanned] = useState(false);
+  const [composeOpen, setComposeOpen] = useState(false);
+  const [composeQuery, setComposeQuery] = useState("");
   const [busy, setBusy] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
 
-  const active = threads.find((t) => t.userId === activeUserId) ?? null;
+  const list = threads
+    .filter((t) => (filter === "unread" ? t.unread > 0 : true))
+    .filter((t) => (q.trim() ? t.name.toLowerCase().includes(q.trim().toLowerCase()) : true));
 
-  const send = async () => {
-    if (!active || !text.trim()) return;
+  const active = threads.find((t) => t.userId === activeId) ?? list[0] ?? null;
+
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [active?.messages.length]);
+
+  const send = async (value?: string) => {
+    const msg = (value ?? text).trim();
+    if (!active || !msg) return;
     setBusy(true);
     try {
-      await reply({ userId: active.userId as never, text: text.trim() });
+      await reply({ userId: active.userId, text: msg });
       setText("");
-    } catch {
-      toast.error("Could not send reply");
+      setEmoji(false);
+      setCanned(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not send reply");
     } finally {
       setBusy(false);
     }
   };
+
+  const contacts = users
+    .filter((u) => u.role === "user")
+    .filter((u) => (composeQuery.trim() ? `${u.name} ${u.phone ?? ""} ${u.email ?? ""}`.toLowerCase().includes(composeQuery.toLowerCase()) : true));
 
   return (
     <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
       <GlassCard className="p-2">
-        {threads.length === 0 ? (
-          <p className="p-4 text-sm text-muted-foreground">No conversations yet.</p>
-        ) : (
-          threads.map((t) => (
+        <div className="flex items-center gap-2 p-2">
+          <div className="flex h-9 min-w-0 flex-1 items-center gap-2 rounded-xl glass-soft px-3">
+            <Search className="h-3.5 w-3.5 text-muted-foreground" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search chats" className="min-w-0 flex-1 bg-transparent text-sm outline-none" />
+          </div>
+          <button onClick={() => setComposeOpen(true)} aria-label="New chat" className="btn-glass btn-glass-primary grid h-9 w-9 shrink-0 place-items-center rounded-xl">
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="flex gap-1 p-2 pt-0">
+          {(["all", "unread"] as const).map((f) => (
             <button
-              key={t.userId}
-              onClick={() => setActiveUserId(t.userId)}
+              key={f}
+              onClick={() => setFilter(f)}
               className={cn(
-                "flex w-full items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-accent/40",
-                active?.userId === t.userId && "bg-accent/60",
+                "flex-1 rounded-full py-1 text-xs font-semibold capitalize transition",
+                filter === f ? "btn-glass btn-glass-primary" : "text-muted-foreground",
               )}
             >
-              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary/15 text-xs font-black text-primary">
-                {t.name[0]?.toUpperCase()}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-bold">{t.name}</span>
-                <span className="block truncate text-[11px] text-muted-foreground">
-                  {t.messages[t.messages.length - 1]?.text || "…"}
-                </span>
-              </span>
-              {t.unread > 0 ? (
-                <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-success px-1 text-[10px] font-bold text-background">
-                  {t.unread}
-                </span>
-              ) : null}
+              {f}
             </button>
-          ))
-        )}
+          ))}
+        </div>
+        <div className="space-y-1 px-1 pb-1">
+          {list.length === 0 ? (
+            <p className="p-4 text-center text-sm text-muted-foreground">No conversations.</p>
+          ) : (
+            list.map((t) => (
+              <button
+                key={t.userId}
+                onClick={() => setActiveId(t.userId)}
+                className={cn(
+                  "flex w-full items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-accent/40",
+                  active?.userId === t.userId && "bg-accent/60",
+                )}
+              >
+                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary/15 text-xs font-black text-primary">
+                  {initials(t.name)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm font-bold">{t.name}</span>
+                  <span className="block truncate text-[11px] text-muted-foreground">{t.messages[t.messages.length - 1]?.text || "…"}</span>
+                </span>
+                {t.unread > 0 ? (
+                  <span className="grid h-5 min-w-5 shrink-0 place-items-center rounded-full bg-success px-1 text-[10px] font-bold text-background">
+                    {t.unread}
+                  </span>
+                ) : null}
+              </button>
+            ))
+          )}
+        </div>
       </GlassCard>
 
-      <GlassCard className="flex h-[480px] flex-col p-0">
+      <GlassCard className="flex h-[520px] flex-col p-0">
         {!active ? (
-          <div className="grid flex-1 place-items-center text-sm text-muted-foreground">
-            Select a conversation on the left.
-          </div>
+          <div className="grid flex-1 place-items-center text-sm text-muted-foreground">Select a conversation on the left.</div>
         ) : (
           <>
             <div className="border-b border-border/40 px-4 py-3 font-bold">{active.name}</div>
             <div className="wa wa-panel wa-wall min-h-0 flex-1 space-y-1 overflow-y-auto p-3">
               {active.messages.map((m) => (
                 <div key={m._id} className={cn("flex", m.sender === "user" ? "justify-end" : "justify-start")}>
-                  <div className={cn("wa-bubble", m.sender === "user" ? "wa-out wa-bubble-out" : "wa-in wa-bubble-in")}>
+                  <div className={cn("wa-bubble max-w-[80%]", m.sender === "user" ? "wa-out wa-bubble-out" : "wa-in wa-bubble-in")}>
                     {m.attachment?.url ? (
                       <div className="mb-1 overflow-hidden rounded-md">
                         <img src={m.attachment.url} alt={m.attachment.name} className="max-h-40 w-full object-cover" />
@@ -752,276 +2033,97 @@ function ChatTab() {
                   </div>
                 </div>
               ))}
+              <div ref={endRef} />
             </div>
-            <div className="flex gap-2 border-t border-black/5 p-3">
-              <input
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") void send();
-                }}
-                placeholder="Reply as support…"
-                className="h-11 min-w-0 flex-1 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-              />
-              <button
-                onClick={() => void send()}
-                disabled={busy || !text.trim()}
-                className="btn-glass btn-glass-primary h-11 shrink-0 px-5 text-sm font-bold disabled:opacity-50"
-              >
-                Send
-              </button>
+            <div className="relative border-t border-black/5 p-3">
+              {emoji ? (
+                <div className="glass absolute -top-16 left-3 flex max-w-[92%] flex-wrap gap-1 rounded-2xl p-2 shadow-[var(--shadow-elegant)]">
+                  {EMOJIS.map((e) => (
+                    <button key={e} onClick={() => setText((t) => t + e)} className="rounded-lg p-1 text-lg transition hover:bg-accent">
+                      {e}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              {canned ? (
+                <div className="glass absolute -top-36 left-3 z-10 w-[92%] rounded-2xl p-2 shadow-[var(--shadow-elegant)]">
+                  {CANNED.map((c) => (
+                    <button
+                      key={c}
+                      onClick={() => {
+                        setText(c);
+                        setCanned(false);
+                      }}
+                      className="block w-full rounded-lg px-2 py-1.5 text-left text-xs transition hover:bg-accent"
+                    >
+                      {c}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+              <div className="flex gap-2">
+                <button onClick={() => setCanned((v) => !v)} aria-label="Canned replies" className="btn-glass h-11 w-11 shrink-0 rounded-xl text-base">
+                  📋
+                </button>
+                <button onClick={() => setEmoji((v) => !v)} aria-label="Emoji" className="btn-glass h-11 w-11 shrink-0 rounded-xl text-base">
+                  😀
+                </button>
+                <input
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void send();
+                  }}
+                  placeholder="Reply as support…"
+                  className="h-11 min-w-0 flex-1 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+                />
+                <button onClick={() => void send()} disabled={busy || !text.trim()} className="btn-glass btn-glass-primary h-11 shrink-0 px-5 text-sm font-bold disabled:opacity-50">
+                  <Send className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </>
         )}
       </GlassCard>
-    </div>
-  );
-}
 
-/* ============================== rewards & proofs ============================== */
-
-function RewardsTab() {
-  const { rewardClaims, proofs, leaderPlans, users } = useAdminData();
-  const { plans } = useHope();
-  const reviewReward = useMutation(api.rewards.reviewRewardClaim);
-  const reviewProof = useMutation(api.proofs.reviewWithdrawalProof);
-  const activateLeader = useMutation(api.leaderPlans.adminActivateLeaderPlan);
-  const removeLeader = useMutation(api.leaderPlans.adminRemoveLeaderPlan);
-  const [tab, setTab] = useState<"rewards" | "proofs" | "leaders">("rewards");
-  const [leaderForm, setLeaderForm] = useState<{ userId: string; planId: string; amount: string; checkHours: string; required: string } | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const nameById = useMemo(
-    () => new Map(users.map((u) => [u.userId, u.name])),
-    [users],
-  );
-
-  return (
-    <div className="space-y-4">
-      <div className="flex gap-2">
-        {(
-          [
-            { id: "rewards", label: `Reward tasks (${rewardClaims.filter((c) => c.status === "pending").length})` },
-            { id: "proofs", label: `Payout proofs (${proofs.filter((p) => p.status === "pending").length})` },
-            { id: "leaders", label: `Leader plans (${leaderPlans.filter((l) => l.status === "active").length})` },
-          ] as const
-        ).map((t) => (
-          <button
-            key={t.id}
-            onClick={() => setTab(t.id)}
-            className={cn(
-              "rounded-2xl px-4 py-2.5 text-sm font-bold transition",
-              tab === t.id ? "btn-glass btn-glass-primary" : "btn-glass text-muted-foreground",
-            )}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
-
-      {tab === "rewards" ? (
-        <GlassCard className="p-2">
-          {rewardClaims.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">No reward task submissions.</p>
-          ) : (
-            rewardClaims.map((c) => (
-              <div key={c._id} className="flex flex-wrap items-center gap-3 border-b border-border/40 p-3 last:border-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold">
-                    {nameById.get(c.userId) ?? "User"} · {money(c.amount)} <StatusBadge status={c.status} />
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">{fmtDateTime(c.createdAt)}</p>
-                  <span className="mt-1.5 flex gap-2">
-                    {c.whatsappProof ? (
-                      <img src={c.whatsappProof} alt="wa" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
-                    ) : null}
-                    {c.facebookProof ? (
-                      <img src={c.facebookProof} alt="fb" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
-                    ) : null}
-                  </span>
-                </div>
-                {c.status === "pending" ? (
-                  <div className="flex shrink-0 gap-2">
-                    <button
-                      onClick={() => void reviewReward({ id: c._id, approve: true })}
-                      className="rounded-xl bg-success/15 px-3 py-2 text-xs font-bold text-success transition hover:bg-success/25"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => void reviewReward({ id: c._id, approve: false })}
-                      className="rounded-xl bg-destructive/15 px-3 py-2 text-xs font-bold text-destructive transition hover:bg-destructive/25"
-                    >
-                      Reject
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            ))
-          )}
-        </GlassCard>
-      ) : null}
-
-      {tab === "proofs" ? (
-        <GlassCard className="p-2">
-          {proofs.length === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">No payout proof submissions.</p>
-          ) : (
-            proofs.map((p) => (
-              <div key={p._id} className="flex flex-wrap items-center gap-3 border-b border-border/40 p-3 last:border-0">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-bold">
-                    {nameById.get(p.userId) ?? "User"} · {money(p.amount)} <StatusBadge status={p.status} />
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">{fmtDateTime(p.createdAt)}</p>
-                  <span className="mt-1.5 block">
-                    <img src={p.imageUrl} alt="payout proof" className="h-20 w-20 rounded-xl object-cover ring-1 ring-border" />
-                  </span>
-                </div>
-                {p.status === "pending" ? (
-                  <div className="flex shrink-0 gap-2">
-                    <button
-                      onClick={() => void reviewProof({ id: p._id, approve: true })}
-                      className="rounded-xl bg-success/15 px-3 py-2 text-xs font-bold text-success transition hover:bg-success/25"
-                    >
-                      Approve
-                    </button>
-                    <button
-                      onClick={() => void reviewProof({ id: p._id, approve: false })}
-                      className="rounded-xl bg-destructive/15 px-3 py-2 text-xs font-bold text-destructive transition hover:bg-destructive/25"
-                    >
-                      Reject
-                    </button>
-                  </div>
-                ) : null}
-              </div>
-            ))
-          )}
-        </GlassCard>
-      ) : null}
-
-      {tab === "leaders" ? (
-        <>
-          <button
-            onClick={() => setLeaderForm({ userId: "", planId: "", amount: "", checkHours: "24", required: "0" })}
-            className="btn-glass btn-glass-gold h-11 px-5 text-sm font-bold"
-          >
-            + Activate leader plan
-          </button>
-          <GlassCard className="p-2">
-            {leaderPlans.length === 0 ? (
-              <p className="p-4 text-sm text-muted-foreground">No leader plans yet.</p>
-            ) : (
-              leaderPlans.map((lp) => (
-                <div key={lp._id} className="flex flex-wrap items-center gap-3 border-b border-border/40 p-3 last:border-0">
-                  <div className="min-w-0 flex-1">
-                    <p className="flex flex-wrap items-center gap-2 text-sm font-bold">
-                      {nameById.get(lp.userId) ?? "User"} · {lp.planName} · {money(lp.amount)}
-                      <StatusBadge status={lp.status} />
-                    </p>
-                    <p className="text-[11px] text-muted-foreground">
-                      Requires {money(lp.requiredInvestment)} team investment by {fmtDateTime(lp.deadlineAt)}
-                    </p>
-                  </div>
-                  {lp.status === "active" ? (
-                    <button
-                      onClick={() => void removeLeader({ id: lp._id })}
-                      className="rounded-xl bg-destructive/15 px-3 py-2 text-xs font-bold text-destructive transition hover:bg-destructive/25"
-                    >
-                      Remove
-                    </button>
-                  ) : null}
-                </div>
-              ))
-            )}
-          </GlassCard>
-        </>
-      ) : null}
-
-      {leaderForm ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-sm">
-          <GlassCard className="animate-rise w-full max-w-sm">
-            <h3 className="font-display text-lg font-extrabold">Activate leader plan</h3>
-            <div className="mt-4 space-y-3">
-              <select
-                value={leaderForm.userId}
-                onChange={(e) => setLeaderForm({ ...leaderForm, userId: e.target.value })}
-                className="h-12 w-full rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
-              >
-                <option value="">Select user…</option>
-                {users.map((u) => (
-                  <option key={u.userId} value={u.userId}>
-                    {u.name} ({u.referralCode})
-                  </option>
-                ))}
-              </select>
-              <select
-                value={leaderForm.planId}
-                onChange={(e) => setLeaderForm({ ...leaderForm, planId: e.target.value })}
-                className="h-12 w-full rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
-              >
-                <option value="">Select plan…</option>
-                {plans.map((p) => (
-                  <option key={p.slug} value={p.slug}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              <div className="grid grid-cols-3 gap-2">
-                <input
-                  type="number"
-                  value={leaderForm.amount}
-                  onChange={(e) => setLeaderForm({ ...leaderForm, amount: e.target.value })}
-                  placeholder="Amount"
-                  className="h-12 w-full rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
-                />
-                <input
-                  type="number"
-                  value={leaderForm.checkHours}
-                  onChange={(e) => setLeaderForm({ ...leaderForm, checkHours: e.target.value })}
-                  placeholder="Hours"
-                  className="h-12 w-full rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
-                />
-                <input
-                  type="number"
-                  value={leaderForm.required}
-                  onChange={(e) => setLeaderForm({ ...leaderForm, required: e.target.value })}
-                  placeholder="Req"
-                  className="h-12 w-full rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
-                />
-              </div>
+      {composeOpen ? (
+        <div className="fixed inset-0 z-[70] grid place-items-center bg-background/70 p-4 backdrop-blur-sm">
+          <GlassCard className="animate-rise w-full max-w-md">
+            <div className="mb-3 flex items-center justify-between">
+              <p className="font-display text-lg font-extrabold">Start a new chat</p>
+              <button onClick={() => setComposeOpen(false)} aria-label="Close">
+                <X className="h-5 w-5 text-muted-foreground" />
+              </button>
             </div>
-            <div className="mt-5 flex gap-3">
-              <button onClick={() => setLeaderForm(null)} className="btn-glass flex h-11 flex-1 items-center justify-center text-sm font-semibold text-foreground">
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (!leaderForm.userId || !leaderForm.planId || !leaderForm.amount) {
-                    return toast.error("Select a user, plan and amount");
-                  }
-                  setBusy(true);
-                  try {
-                    await activateLeader({
-                      userId: leaderForm.userId as never,
-                      planId: leaderForm.planId,
-                      amount: Number(leaderForm.amount),
-                      checkHours: Number(leaderForm.checkHours || 24),
-                      requiredInvestment: Number(leaderForm.required || 0),
-                    });
-                    toast.success("Leader plan activated.");
-                    setLeaderForm(null);
-                  } catch (e) {
-                    toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Activation failed");
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-                disabled={busy}
-                className="btn-glass btn-glass-primary flex h-11 flex-1 items-center justify-center text-sm font-bold disabled:opacity-60"
-              >
-                {busy ? "Activating…" : "Activate"}
-              </button>
+            <input
+              value={composeQuery}
+              onChange={(e) => setComposeQuery(e.target.value)}
+              placeholder="Search users…"
+              className="h-11 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+            />
+            <div className="mt-3 max-h-72 space-y-1 overflow-y-auto">
+              {contacts.map((u) => (
+                <button
+                  key={u.userId}
+                  onClick={() => {
+                    setActiveId(u.userId);
+                    setComposeOpen(false);
+                    setComposeQuery("");
+                  }}
+                  className="flex w-full items-center gap-3 rounded-2xl p-3 text-left transition hover:bg-accent/40"
+                >
+                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary/15 text-xs font-black text-primary">
+                    {initials(u.name)}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-bold">{u.name}</span>
+                    <span className="block truncate text-[11px] text-muted-foreground">
+                      {u.phone ?? u.email} · {u.referralCode}
+                    </span>
+                  </span>
+                </button>
+              ))}
+              {contacts.length === 0 ? <p className="p-4 text-center text-sm text-muted-foreground">No users found.</p> : null}
             </div>
           </GlassCard>
         </div>
@@ -1030,74 +2132,181 @@ function RewardsTab() {
   );
 }
 
-/* ============================== settings ============================== */
+/* ============================== broadcast ============================== */
 
-function SettingsTab() {
-  const { apiKeys, audit, users } = useAdminData();
-  const { settings, methods } = useHope();
-  const updateSettings = useMutation(api.admin.adminUpdateSettings);
-  const upsertMethod = useMutation(api.admin.adminUpsertPaymentMethod);
-  const deleteMethod = useMutation(api.admin.adminDeletePaymentMethod);
-  const upsertKey = useMutation(api.admin.adminUpsertApiKey);
-  const deleteKey = useMutation(api.admin.adminDeleteApiKey);
-  const notify = useMutation(api.notifications.adminNotify);
-
-  const [form, setForm] = useState(() => ({
-    siteName: settings?.siteName ?? "HopeX",
-    minDeposit: String(settings?.minDeposit ?? 1000),
-    minWithdraw: String(settings?.minWithdraw ?? 500),
-    levels: (settings?.levels ?? [10, 2, 1, 4]).join(","),
-    announcementText: settings?.announcementText ?? "",
-    announcementActive: settings?.announcementActive ?? false,
-    maintenanceMode: settings?.maintenanceMode ?? false,
-    maintenanceMessage: settings?.maintenanceMessage ?? "",
-    supportWhatsapp: settings?.supportWhatsapp ?? "",
-    withdrawOpenHour: String(settings?.withdrawOpenHour ?? 8),
-    withdrawCloseHour: String(settings?.withdrawCloseHour ?? 19),
-    rewardAmount: String(settings?.rewardAmount ?? 100),
-    rewardCooldownHours: String(settings?.rewardCooldownHours ?? 24),
-    rewardActive: settings?.rewardActive ?? true,
-    proofRewardAmount: String(settings?.proofRewardAmount ?? 5),
-    showProofsSection: settings?.showProofsSection ?? true,
-    salaryTiers: (settings?.salaryTiers ?? []).map((t) => `${t.rank}:${t.invested}:${t.salary}`).join("\n"),
-  }));
-  const [methodForm, setMethodForm] = useState<{ name: string; kind: "wallet" | "bank"; accountName: string; accountNumber: string; instructions: string; active: boolean } | null>(null);
-  const [keyForm, setKeyForm] = useState<{ provider: string; label: string; apiKey: string; purpose: string; active: boolean } | null>(null);
+function BroadcastPanel() {
+  const { users } = useAdminData();
+  const broadcast = useMutation(api.notifications.adminBroadcast);
+  const [title, setTitle] = useState("");
+  const [body, setBody] = useState("");
+  const [target, setTarget] = useState("all");
   const [busy, setBusy] = useState(false);
 
-  const save = async (e: React.FormEvent) => {
+  const send = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!title.trim() || !body.trim()) return toast.error("Title and message are required.");
     setBusy(true);
     try {
-      await updateSettings({
-        siteName: form.siteName.trim() || "HopeX",
-        minDeposit: Number(form.minDeposit) || 0,
-        minWithdraw: Number(form.minWithdraw) || 0,
-        levels: form.levels.split(",").map(Number),
-        announcementText: form.announcementText,
-        announcementActive: form.announcementActive,
-        maintenanceMode: form.maintenanceMode,
-        maintenanceMessage: form.maintenanceMessage,
-        supportWhatsapp: form.supportWhatsapp,
-        withdrawOpenHour: Number(form.withdrawOpenHour) || 8,
-        withdrawCloseHour: Number(form.withdrawCloseHour) || 19,
-        rewardAmount: Number(form.rewardAmount) || 0,
-        rewardCooldownHours: Number(form.rewardCooldownHours) || 24,
-        rewardActive: form.rewardActive,
-        proofRewardAmount: Number(form.proofRewardAmount) || 0,
-        showProofsSection: form.showProofsSection,
-        salaryTiers: form.salaryTiers
-          .split("\n")
-          .map((line) => line.trim())
-          .filter(Boolean)
-          .map((line) => {
-            const [rank, invested, salary] = line.split(":");
-            return { rank: rank ?? "Rank", invested: Number(invested) || 0, salary: Number(salary) || 0, team: 0 };
-          }),
-      });
-      toast.success("Settings saved.");
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message.replace(/^.*?:\s*/, "") : "Could not save settings");
+      const userIds = target === "all" ? undefined : ([target] as Id<"users">[]);
+      const n = await broadcast({ title: title.trim(), body: body.trim(), userIds, popup: true });
+      toast.success(`Sent to ${n} user(s).`);
+      setTitle("");
+      setBody("");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not send");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <GlassCard className="max-w-xl">
+      <h2 className="flex items-center gap-2 text-lg font-bold">
+        <Megaphone className="h-5 w-5 text-primary" /> Broadcast a notification
+      </h2>
+      <form onSubmit={send} className="mt-4 space-y-3">
+        <select value={target} onChange={(e) => setTarget(e.target.value)} className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none">
+          <option value="all">All users</option>
+          {users.map((u) => (
+            <option key={u.userId} value={u.userId}>
+              {u.name} — {u.phone ?? u.email}
+            </option>
+          ))}
+        </select>
+        <input
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Title"
+          className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+        />
+        <textarea
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+          placeholder="Message"
+          rows={4}
+          className="w-full rounded-xl border border-input bg-background/40 p-4 text-sm outline-none"
+        />
+        <button disabled={busy} className="h-12 w-full rounded-xl gradient-brand font-semibold text-primary-foreground disabled:opacity-60">
+          {busy ? "Sending…" : "Send notification"}
+        </button>
+      </form>
+    </GlassCard>
+  );
+}
+
+/* ============================== audit log ============================== */
+
+function AuditLogPanel() {
+  const { audit } = useAdminData();
+  return (
+    <GlassCard>
+      <h2 className="text-lg font-bold">Audit log</h2>
+      <p className="text-xs text-muted-foreground">Every admin action, newest first.</p>
+      <div className="mt-4 divide-y divide-border/40">
+        {audit.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No activity yet.</p>
+        ) : (
+          audit.map((r) => (
+            <div key={r._id} className="flex items-start justify-between gap-3 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">
+                  {r.action}
+                  {r.targetName ? ` · ${r.targetName}` : ""}
+                </p>
+                <p className="truncate text-xs text-muted-foreground">
+                  {r.detail}
+                  {r.adminName ? ` — by ${r.adminName}` : ""}
+                </p>
+              </div>
+              <p className="shrink-0 text-[11px] text-muted-foreground">{fmtDateTime(r.createdAt)}</p>
+            </div>
+          ))
+        )}
+      </div>
+    </GlassCard>
+  );
+}
+
+/* ============================== tools ============================== */
+
+function toCsv(rows: Record<string, unknown>[]) {
+  if (!rows.length) return "";
+  const keys = Object.keys(rows[0]!);
+  const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  return [keys.join(","), ...rows.map((r) => keys.map((k) => esc(r[k])).join(","))].join("\n");
+}
+
+function download(name: string, content: string, type: string) {
+  const blob = new Blob([content], { type });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = name;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function ToolsPanel() {
+  const { users, transactions, plans, audit } = useAdminData();
+  const { settings, methods, promos } = useHope();
+  const adjust = useMutation(api.admin.adminAdjustBalance);
+  const broadcast = useMutation(api.notifications.adminBroadcast);
+  const purge = useMutation(api.admin.adminPurgeDeclined);
+  const [target, setTarget] = useState("");
+  const [amount, setAmount] = useState("");
+  const [mode, setMode] = useState<"credit" | "debit">("credit");
+  const [note, setNote] = useState("");
+  const [segment, setSegment] = useState<"all" | "active" | "idle">("all");
+  const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const regular = users.filter((u) => u.role === "user");
+  const pending = transactions.filter((t) => t.status === "pending" || t.status === "processing");
+
+  const segmentUsers = useMemo(
+    () => regular.filter((u) => (segment === "all" ? true : segment === "active" ? u.invested > 0 : u.invested === 0)),
+    [regular, segment],
+  );
+
+  const applyLedger = async () => {
+    const amt = Number(amount);
+    const u = regular.find((x) => x.userId === target);
+    if (!u || !amt || amt <= 0) return toast.error("Pick a user and a valid amount.");
+    setBusy(true);
+    try {
+      await adjust({ userId: u.userId, amount: amt, kind: mode === "credit" ? "deposit" : "withdraw", note: note || "Manual adjustment" });
+      setAmount("");
+      setNote("");
+      toast.success("Ledger entry applied.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doBroadcast = async () => {
+    if (!msg.trim()) return toast.error("Write a message first.");
+    setBusy(true);
+    try {
+      const n = await broadcast({ title: "HopeX update", body: msg.trim(), userIds: segmentUsers.map((u) => u.userId), popup: false });
+      setMsg("");
+      toast.success(`Sent to ${n} users.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const doPurge = async () => {
+    if (!confirm("Delete all declined records older than 30 days?")) return;
+    setBusy(true);
+    try {
+      const n = await purge({ days: 30 });
+      toast.success(`${n} old declined records cleared.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Failed");
     } finally {
       setBusy(false);
     }
@@ -1105,289 +2314,719 @@ function SettingsTab() {
 
   return (
     <div className="space-y-4">
-      <GlassCard className="p-5">
-        <p className="mb-4 text-sm font-bold">Site settings</p>
-        <form onSubmit={save} className="grid gap-3 sm:grid-cols-2">
-          <Field label="Site name" value={form.siteName} onChange={(v) => setForm({ ...form, siteName: v })} />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Min deposit" value={form.minDeposit} onChange={(v) => setForm({ ...form, minDeposit: v })} />
-            <Field label="Min withdraw" value={form.minWithdraw} onChange={(v) => setForm({ ...form, minWithdraw: v })} />
+      <div className="grid gap-4 lg:grid-cols-2">
+        <GlassCard>
+          <div className="mb-4 flex items-center gap-2">
+            <Download className="h-4 w-4 text-primary" />
+            <p className="text-sm font-bold">Data export</p>
           </div>
-          <Field label="Referral levels % (comma: L1..L4)" value={form.levels} onChange={(v) => setForm({ ...form, levels: v })} />
-          <Field label="WhatsApp support" value={form.supportWhatsapp} onChange={(v) => setForm({ ...form, supportWhatsapp: v })} />
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Withdraw open hour" value={form.withdrawOpenHour} onChange={(v) => setForm({ ...form, withdrawOpenHour: v })} />
-            <Field label="Withdraw close hour" value={form.withdrawCloseHour} onChange={(v) => setForm({ ...form, withdrawCloseHour: v })} />
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() =>
+                download(
+                  "hopex-users.csv",
+                  toCsv(regular.map((u) => ({ name: u.name, phone: u.phone ?? "", balance: u.balance, invested: u.invested, earnings: u.earnings, referral: u.referralCode, joined: fmtDate(u.createdAt) }))),
+                  "text/csv",
+                )
+              }
+              className="btn-glass rounded-xl px-4 py-2.5 text-xs font-bold"
+            >
+              Users CSV
+            </button>
+            <button
+              onClick={() =>
+                download(
+                  "hopex-transactions.csv",
+                  toCsv(transactions.map((t) => ({ user: users.find((u) => u.userId === t.userId)?.name ?? "", type: t.type, amount: t.amount, method: t.method ?? "", status: t.status, date: fmtDateTime(t.createdAt) }))),
+                  "text/csv",
+                )
+              }
+              className="btn-glass rounded-xl px-4 py-2.5 text-xs font-bold"
+            >
+              Transactions CSV
+            </button>
+            <button
+              onClick={() =>
+                download(
+                  `hopex-snapshot-${new Date().toISOString().slice(0, 10)}.json`,
+                  JSON.stringify({ users: regular, transactions, plans, audit, exportedAt: new Date().toISOString() }, null, 2),
+                  "application/json",
+                )
+              }
+              className="btn-glass rounded-xl px-4 py-2.5 text-xs font-bold"
+            >
+              JSON snapshot
+            </button>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Reward amount" value={form.rewardAmount} onChange={(v) => setForm({ ...form, rewardAmount: v })} />
-            <Field label="Reward cooldown hrs" value={form.rewardCooldownHours} onChange={(v) => setForm({ ...form, rewardCooldownHours: v })} />
+        </GlassCard>
+
+        <GlassCard>
+          <div className="mb-4 flex items-center gap-2">
+            <Activity className="h-4 w-4 text-primary" />
+            <p className="text-sm font-bold">System health</p>
           </div>
-          <Field label="Proof reward amount" value={form.proofRewardAmount} onChange={(v) => setForm({ ...form, proofRewardAmount: v })} />
-          <textarea
-            value={form.announcementText}
-            onChange={(e) => setForm({ ...form, announcementText: e.target.value })}
-            placeholder="Announcement text"
-            className="h-12 w-full rounded-xl border border-input bg-background/40 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-          />
-          <textarea
-            value={form.salaryTiers}
-            onChange={(e) => setForm({ ...form, salaryTiers: e.target.value })}
-            placeholder="Salary tiers (Rank:invested:salary per line)"
-            className="min-h-24 w-full rounded-xl border border-input bg-background/40 px-3 py-2 font-mono text-xs outline-none focus:ring-2 focus:ring-ring"
-          />
-          <div className="flex flex-wrap gap-4 sm:col-span-2">
+          <div className="grid grid-cols-2 gap-3 text-sm">
             {(
               [
-                { key: "announcementActive", label: "Show announcement" },
-                { key: "maintenanceMode", label: "Maintenance mode" },
-                { key: "rewardActive", label: "Reward task open" },
-                { key: "showProofsSection", label: "Show proofs wall" },
+                ["Pending queue", String(pending.length)],
+                ["Active plans", String(users.filter((u) => u.invested > 0).length)],
+                ["Payment methods", String(methods.filter((m) => m.active).length)],
+                ["Promo codes", String(promos.filter((p) => p.active).length)],
+                ["Users", String(regular.length)],
+                ["Maintenance", settings?.maintenanceMode ? "ON" : "Off"],
               ] as const
-            ).map((c) => (
-              <label key={c.key} className="flex items-center gap-2 text-sm font-semibold">
-                <input
-                  type="checkbox"
-                  checked={form[c.key]}
-                  onChange={(e) => setForm({ ...form, [c.key]: e.target.checked })}
-                  className="h-4 w-4"
-                />
-                {c.label}
-              </label>
+            ).map(([k, v]) => (
+              <div key={k} className="rounded-2xl glass-soft px-3 py-2.5">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{k}</p>
+                <p className="font-display text-lg font-extrabold">{v}</p>
+              </div>
             ))}
           </div>
-          <div className="sm:col-span-2">
-            <button disabled={busy} className="btn-glass btn-glass-primary h-12 px-8 text-sm font-bold disabled:opacity-60">
-              {busy ? "Saving…" : "Save settings"}
-            </button>
-          </div>
-        </form>
-      </GlassCard>
+        </GlassCard>
+      </div>
 
-      {/* Payment methods */}
-      <GlassCard className="p-2">
-        <div className="flex items-center justify-between gap-2 p-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Payment methods</p>
-          <span className="text-[11px] text-muted-foreground">used at deposit</span>
-          <button onClick={() => setMethodForm({ name: "", kind: "wallet", accountName: "", accountNumber: "", instructions: "", active: true })} className="btn-glass btn-glass-primary h-9 px-4 text-xs font-bold">
-            + Add
-          </button>
+      <GlassCard>
+        <div className="mb-4 flex items-center gap-2">
+          <Wallet className="h-4 w-4 text-primary" />
+          <p className="text-sm font-bold">Manual ledger entry</p>
         </div>
-        {methods.map((m) => (
-          <div key={m._id} className="flex flex-wrap items-center gap-3 border-t border-border/40 p-3">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-bold">
-                {m.name} <span className="text-[10px] font-semibold uppercase text-muted-foreground">{m.kind}</span>
-              </p>
-              <p className="truncate text-[11px] text-muted-foreground">
-                {m.accountName} · {m.accountNumber} · {m.active ? "active" : "hidden"}
-              </p>
-            </div>
-            <button
-              onClick={() => setMethodForm({ name: m.name, kind: m.kind, accountName: m.accountName, accountNumber: m.accountNumber, instructions: m.instructions, active: m.active })}
-              className="rounded-xl border border-border px-3 py-1.5 text-xs font-semibold transition hover:bg-accent"
-            >
-              Edit
-            </button>
-          </div>
-        ))}
-      </GlassCard>
-
-      {/* API keys */}
-      <GlassCard className="p-2">
-        <div className="flex items-center justify-between gap-2 p-3">
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Image API keys</p>
-          <button onClick={() => setKeyForm({ provider: "imgbb", label: "Key", apiKey: "", purpose: "images", active: true })} className="btn-glass btn-glass-primary h-9 px-4 text-xs font-bold">
-            + Add key
-          </button>
-        </div>
-        {apiKeys.length === 0 ? (
-          <p className="border-t border-border/40 p-4 text-sm text-muted-foreground">
-            No keys — image uploads fall back to the IMGBB_API_KEY environment variable.
-          </p>
-        ) : (
-          apiKeys.map((k) => (
-            <div key={k._id} className="flex flex-wrap items-center gap-3 border-t border-border/40 p-3">
-              <KeyRound className="h-4 w-4 shrink-0 text-muted-foreground" />
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-bold">
-                  {k.label} <span className="text-[10px] font-semibold uppercase text-muted-foreground">{k.provider}</span>
-                </p>
-                <p className="truncate text-[11px] text-muted-foreground">
-                  {k.uploads} uploads · {k.failures} failures · {k.active ? "active" : "inactive"}
-                </p>
-              </div>
-              <button onClick={() => void deleteKey({ id: k._id })} className="text-xs font-semibold text-destructive">
-                Delete
-              </button>
-            </div>
-          ))
-        )}
-      </GlassCard>
-
-      {/* Broadcast notification */}
-      <GlassCard className="p-5">
-        <p className="mb-3 flex items-center gap-2 text-sm font-bold">
-          <BellRing className="h-4 w-4 text-primary" /> Send notification
-        </p>
-        <form
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const fd = new FormData(e.currentTarget);
-            const userId = fd.get("userId") as string;
-            const title = (fd.get("title") as string) ?? "";
-            const body = (fd.get("body") as string) ?? "";
-            if (!userId || !title) return toast.error("Select a user and enter a title");
-            try {
-              await notify({ userId: userId as never, title, body });
-              toast.success("Notification sent.");
-              (e.currentTarget as HTMLFormElement).reset();
-            } catch {
-              toast.error("Could not send notification");
-            }
-          }}
-          className="grid gap-2 sm:grid-cols-[1fr_1fr_1fr_auto]"
-        >
-          <select name="userId" className="h-11 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none">
+        <div className="grid gap-3 lg:grid-cols-4">
+          <select value={target} onChange={(e) => setTarget(e.target.value)} className="h-12 rounded-xl border border-input bg-background/40 px-4 text-sm outline-none">
             <option value="">Select user…</option>
-            {users.map((u) => (
+            {regular.map((u) => (
               <option key={u.userId} value={u.userId}>
-                {u.name}
+                {u.name} · {u.phone ?? u.email}
               </option>
             ))}
           </select>
-          <input name="title" placeholder="Title" className="h-11 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none" />
-          <input name="body" placeholder="Message" className="h-11 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none" />
-          <button className="btn-glass btn-glass-primary h-11 px-5 text-sm font-bold">Send</button>
-        </form>
+          <input value={amount} onChange={(e) => setAmount(e.target.value)} inputMode="numeric" placeholder="Amount" className="h-12 rounded-xl border border-input bg-background/40 px-4 text-sm outline-none" />
+          <div className="flex gap-1 rounded-xl glass-soft p-1">
+            {(["credit", "debit"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={cn("flex-1 rounded-lg text-xs font-bold capitalize transition", mode === m ? "btn-glass btn-glass-primary" : "text-muted-foreground")}
+              >
+                {m}
+              </button>
+            ))}
+          </div>
+          <input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note (optional)" className="h-12 rounded-xl border border-input bg-background/40 px-4 text-sm outline-none" />
+        </div>
+        <button onClick={applyLedger} disabled={busy} className="mt-3 rounded-xl gradient-brand px-5 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-60">
+          Apply entry
+        </button>
       </GlassCard>
 
-      {methodForm ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-sm">
-          <GlassCard className="animate-rise w-full max-w-sm">
-            <h3 className="font-display text-lg font-extrabold">{methodForm.name ? "Edit" : "New"} payment method</h3>
-            <div className="mt-4 grid gap-3">
-              <Field label="Name" value={methodForm.name} onChange={(v) => setMethodForm({ ...methodForm, name: v })} />
-              <div className="grid grid-cols-2 gap-2">
-                <Field label="Kind" value={methodForm.kind} onChange={(v) => setMethodForm({ ...methodForm, kind: v as "wallet" | "bank" })} />
-                <Field label="Active" value={String(methodForm.active)} onChange={(v) => setMethodForm({ ...methodForm, active: v === "true" })} />
-              </div>
-              <Field label="Account name" value={methodForm.accountName} onChange={(v) => setMethodForm({ ...methodForm, accountName: v })} />
-              <Field label="Account number" value={methodForm.accountNumber} onChange={(v) => setMethodForm({ ...methodForm, accountNumber: v })} />
-              <Field label="Instructions" value={methodForm.instructions} onChange={(v) => setMethodForm({ ...methodForm, instructions: v })} />
-            </div>
-            <div className="mt-5 flex gap-3">
-              <button onClick={() => setMethodForm(null)} className="btn-glass flex h-11 flex-1 items-center justify-center text-sm font-semibold text-foreground">
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (!methodForm.name.trim()) return toast.error("Enter a name");
-                  setBusy(true);
-                  try {
-                    await upsertMethod({ ...methodForm, sortOrder: methods.length + 1 });
-                    toast.success("Payment method saved.");
-                    setMethodForm(null);
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message.replace(/^.*?:\s*/, "") : "Could not save");
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-                disabled={busy}
-                className="btn-glass btn-glass-primary flex h-11 flex-1 items-center justify-center text-sm font-bold disabled:opacity-60"
-              >
-                {busy ? "Saving…" : "Save"}
-              </button>
-            </div>
-          </GlassCard>
+      <GlassCard>
+        <div className="mb-4 flex items-center gap-2">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <p className="text-sm font-bold">Segment broadcast</p>
         </div>
-      ) : null}
+        <div className="flex flex-wrap gap-1 rounded-xl glass-soft p-1">
+          {(
+            [
+              ["all", "Everyone"],
+              ["active", "With active plan"],
+              ["idle", "No plan yet"],
+            ] as const
+          ).map(([k, l]) => (
+            <button
+              key={k}
+              onClick={() => setSegment(k)}
+              className={cn("rounded-lg px-3 py-1.5 text-xs font-bold transition", segment === k ? "btn-glass btn-glass-primary" : "text-muted-foreground")}
+            >
+              {l}
+            </button>
+          ))}
+          <span className="ml-auto self-center px-2 text-xs text-muted-foreground">{segmentUsers.length} recipients</span>
+        </div>
+        <textarea value={msg} onChange={(e) => setMsg(e.target.value)} rows={3} placeholder="Message to send…" className="mt-3 w-full rounded-xl border border-input bg-background/40 p-4 text-sm outline-none" />
+        <button onClick={doBroadcast} disabled={busy} className="mt-3 flex items-center gap-2 rounded-xl gradient-brand px-5 py-2.5 text-sm font-bold text-primary-foreground disabled:opacity-60">
+          <Send className="h-4 w-4" /> Send broadcast
+        </button>
+      </GlassCard>
 
-      {keyForm ? (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-background/70 p-4 backdrop-blur-sm">
-          <GlassCard className="animate-rise w-full max-w-sm">
-            <h3 className="font-display text-lg font-extrabold">API key</h3>
-            <div className="mt-4 grid gap-3">
-              <Field label="Provider" value={keyForm.provider} onChange={(v) => setKeyForm({ ...keyForm, provider: v })} />
-              <Field label="Label" value={keyForm.label} onChange={(v) => setKeyForm({ ...keyForm, label: v })} />
-              <Field label="API key" value={keyForm.apiKey} onChange={(v) => setKeyForm({ ...keyForm, apiKey: v })} />
-              <Field label="Purpose" value={keyForm.purpose} onChange={(v) => setKeyForm({ ...keyForm, purpose: v })} />
-            </div>
-            <div className="mt-5 flex gap-3">
-              <button onClick={() => setKeyForm(null)} className="btn-glass flex h-11 flex-1 items-center justify-center text-sm font-semibold text-foreground">
-                Cancel
-              </button>
-              <button
-                onClick={async () => {
-                  if (!keyForm.apiKey.trim()) return toast.error("Enter the key");
-                  setBusy(true);
-                  try {
-                    await upsertKey({ ...keyForm });
-                    toast.success("API key saved.");
-                    setKeyForm(null);
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message.replace(/^.*?:\s*/, "") : "Could not save");
-                  } finally {
-                    setBusy(false);
-                  }
-                }}
-                disabled={busy}
-                className="btn-glass btn-glass-primary flex h-11 flex-1 items-center justify-center text-sm font-bold disabled:opacity-60"
-              >
-                {busy ? "Saving…" : "Save"}
-              </button>
-            </div>
-          </GlassCard>
+      <GlassCard className="border-destructive/30">
+        <div className="mb-3 flex items-center gap-2">
+          <Database className="h-4 w-4 text-destructive" />
+          <p className="text-sm font-bold text-destructive">Maintenance tools</p>
         </div>
-      ) : null}
+        <button onClick={doPurge} disabled={busy} className="flex items-center gap-2 rounded-xl bg-destructive/15 px-4 py-2.5 text-xs font-bold text-destructive disabled:opacity-60">
+          <Trash2 className="h-3.5 w-3.5" /> Clear declined records older than 30 days
+        </button>
+      </GlassCard>
+    </div>
+  );
+}
+
+/* ============================== SEO ============================== */
+
+function ImageField({ title, value, onChange, hint }: { title: string; value: string | undefined; onChange: (v: string) => void; hint: string }) {
+  const uploader = useUploader();
+  const [busy, setBusy] = useState(false);
+
+  const pick = async (file: File) => {
+    setBusy(true);
+    try {
+      const url = await uploader(file);
+      onChange(url);
+      toast.success(`${title} updated.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Upload failed");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div>
+      <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">{title}</label>
+      <div className="flex items-center gap-3">
+        <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl glass-soft">
+          {value ? <img src={value} alt={title} className="h-full w-full object-cover" /> : <ImageIcon className="h-5 w-5 text-muted-foreground" />}
+        </div>
+        <div className="flex flex-1 flex-wrap gap-2">
+          <label className="btn-glass cursor-pointer rounded-xl px-4 py-2 text-xs font-semibold">
+            {busy ? "Uploading…" : value ? "Replace" : "Upload"}
+            <input type="file" accept="image/*" className="hidden" disabled={busy} onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void pick(f);
+              e.target.value = "";
+            }} />
+          </label>
+          {value ? (
+            <button onClick={() => onChange("")} className="rounded-xl px-4 py-2 text-xs font-semibold text-destructive">
+              Remove
+            </button>
+          ) : null}
+        </div>
+      </div>
+      <p className="mt-1.5 text-[11px] text-muted-foreground">{hint}</p>
+    </div>
+  );
+}
+
+function SeoSettings() {
+  const { settings } = useHope();
+  const update = useMutation(api.admin.adminUpdateSettings);
+  const s = settings;
+
+  const set = async (key: string, value: string | number | undefined) => {
+    try {
+      await update({ [key]: value } as never);
+      toast.success("SEO settings saved.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not save");
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <GlassCard>
+        <div className="mb-4 flex items-center gap-2">
+          <Globe className="h-4 w-4 text-primary" />
+          <p className="text-sm font-bold">Search engine & social preview</p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="lg:col-span-2">
+            <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Meta description (shown in Google results)</label>
+            <textarea
+              defaultValue={s?.seoDescription ?? ""}
+              onBlur={(e) => e.target.value !== (s?.seoDescription ?? "") && void set("seoDescription", e.target.value)}
+              rows={3}
+              className="w-full rounded-xl border border-input bg-background/40 p-4 text-sm outline-none"
+            />
+          </div>
+          <div className="lg:col-span-2">
+            <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Keywords (comma separated)</label>
+            <input
+              defaultValue={s?.seoKeywords ?? ""}
+              onBlur={(e) => e.target.value !== (s?.seoKeywords ?? "") && void set("seoKeywords", e.target.value)}
+              className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+            />
+          </div>
+          <ImageField
+            title="Favicon (browser tab icon)"
+            value={s?.siteFavicon}
+            onChange={(v) => void set("siteFavicon", v)}
+            hint="Square PNG, 64×64 or larger. Replaces the tab icon everywhere."
+          />
+          <ImageField
+            title="Social share image"
+            value={s?.ogImage}
+            onChange={(v) => void set("ogImage", v)}
+            hint="1200×630 works best for WhatsApp, Facebook and X previews."
+          />
+        </div>
+        <p className="mt-4 text-[11px] text-muted-foreground">
+          Sitemap is served at <span className="font-semibold">/sitemap.xml</span> and crawler rules at{" "}
+          <span className="font-semibold">/robots.txt</span>.
+        </p>
+      </GlassCard>
+
+      <GlassCard>
+        <p className="mb-4 text-sm font-bold">Support & withdrawal window</p>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <div className="sm:col-span-3">
+            <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Support WhatsApp number</label>
+            <input
+              defaultValue={s?.supportWhatsapp ?? ""}
+              placeholder="+92 300 0000000"
+              onBlur={(e) => e.target.value !== (s?.supportWhatsapp ?? "") && void set("supportWhatsapp", e.target.value)}
+              className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Withdraw opens (PKT hour)</label>
+            <input
+              type="number"
+              min={0}
+              max={23}
+              defaultValue={s?.withdrawOpenHour ?? 8}
+              onBlur={(e) => void set("withdrawOpenHour", Math.min(23, Math.max(0, Number(e.target.value) || 0)))}
+              className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Withdraw closes (PKT hour)</label>
+            <input
+              type="number"
+              min={1}
+              max={24}
+              defaultValue={s?.withdrawCloseHour ?? 19}
+              onBlur={(e) => void set("withdrawCloseHour", Math.min(24, Math.max(1, Number(e.target.value) || 24)))}
+              className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+            />
+          </div>
+          <div className="grid place-items-center rounded-xl glass-soft text-xs font-semibold">
+            {s?.withdrawOpenHour ?? 8}:00 — {s?.withdrawCloseHour ?? 19}:00 PKT
+          </div>
+        </div>
+      </GlassCard>
+    </div>
+  );
+}
+
+/* ============================== API keys ============================== */
+
+function ApiKeysPanel() {
+  const { apiKeys } = useAdminData();
+  const upsert = useMutation(api.admin.adminUpsertApiKey);
+  const remove = useMutation(api.admin.adminDeleteApiKey);
+  const testKey = useAction(api.upload.testApiKey);
+  const [reveal, setReveal] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [newKey, setNewKey] = useState("");
+  const [newLabel, setNewLabel] = useState("");
+  const [newPurpose, setNewPurpose] = useState("all");
+
+  const rows = apiKeys.filter((k) => k.provider === "imgbb");
+  const active = rows.filter((r) => r.active).length;
+  const uploads = rows.reduce((a, r) => a + r.uploads, 0);
+  const failures = rows.reduce((a, r) => a + r.failures, 0);
+
+  const mask = (key: string) => `${key.slice(0, 6)}…${key.slice(-4)}`;
+
+  const add = async () => {
+    if (!newKey.trim()) return toast.error("Paste an imgbb API key first");
+    setBusy("add");
+    try {
+      await upsert({ provider: "imgbb", label: newLabel.trim() || "imgbb key", apiKey: newKey.trim(), purpose: newPurpose, active: true });
+      setNewKey("");
+      setNewLabel("");
+      setNewPurpose("all");
+      toast.success("Key added.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not add key");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const test = async (id: Id<"apiKeys">) => {
+    setBusy(id);
+    try {
+      const res = await testKey({ id });
+      if (res.ok) toast.success("Key is healthy ✅");
+      else toast.error(res.error ?? "Key rejected");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Test failed");
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <StatCard label="Active keys" value={`${active}/${rows.length}`} icon={<KeyRound className="h-4 w-4" />} />
+        <StatCard label="Uploads served" value={String(uploads)} icon={<TrendingUp className="h-4 w-4" />} accent="success" />
+        <StatCard label="Failures" value={String(failures)} icon={<Activity className="h-4 w-4" />} />
+        <StatCard label="Purpose" value={newPurpose === "all" ? "All uploads" : newPurpose} icon={<Sparkles className="h-4 w-4" />} />
+      </div>
+
+      <GlassCard>
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          <div className="min-w-0 flex-1">
+            <h3 className="font-display text-lg font-bold">Image hosting API keys (imgbb)</h3>
+            <p className="text-sm text-muted-foreground">
+              Uploads rotate across active keys — add more keys for more storage and higher limits.
+            </p>
+          </div>
+          <button onClick={() => setReveal((v) => !v)} className="glass-soft flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold">
+            {reveal ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+            {reveal ? "Hide keys" : "Reveal keys"}
+          </button>
+        </div>
+
+        <div className="mb-5 grid gap-2 rounded-2xl border border-border/60 p-4 sm:grid-cols-[1.4fr_1fr_1fr_auto]">
+          <input value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="Paste imgbb API key" className="h-11 rounded-xl border border-border bg-background/60 px-3 font-mono text-sm outline-none focus:border-primary" />
+          <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Label (e.g. Backup #2)" className="h-11 rounded-xl border border-border bg-background/60 px-3 text-sm outline-none focus:border-primary" />
+          <select value={newPurpose} onChange={(e) => setNewPurpose(e.target.value)} className="h-11 rounded-xl border border-border bg-background/60 px-3 text-sm outline-none focus:border-primary">
+            <option value="all">All uploads</option>
+            <option value="proof">Deposit proofs</option>
+            <option value="chat">Chat media</option>
+            <option value="reward">Reward task proofs</option>
+            <option value="branding">Branding / logos</option>
+          </select>
+          <button onClick={add} disabled={busy === "add"} className="btn-glass flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-bold gradient-cool text-primary-foreground disabled:opacity-60">
+            {busy === "add" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+            Add key
+          </button>
+        </div>
+
+        {rows.length === 0 ? (
+          <p className="rounded-2xl border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            No custom keys yet — the built-in key is handling all uploads.
+          </p>
+        ) : (
+          <div className="space-y-3">
+            {rows.map((r) => (
+              <div key={r._id} className={cn("rounded-2xl border p-4 transition", r.active ? "border-success/30 bg-success/5" : "border-border/60 opacity-70")}>
+                <div className="flex flex-wrap items-center gap-2">
+                  <input
+                    defaultValue={r.label}
+                    onBlur={(e) =>
+                      e.target.value !== r.label &&
+                      void upsert({ id: r._id, provider: r.provider, label: e.target.value, apiKey: r.apiKey, purpose: r.purpose, active: r.active }).then(() => toast.success("Updated."))
+                    }
+                    className="min-w-0 flex-1 rounded-lg bg-transparent px-1 py-0.5 text-sm font-bold outline-none focus:bg-background/60"
+                  />
+                  <span className={cn("rounded-full border px-2.5 py-0.5 text-[11px] font-bold", r.active ? "border-success/30 bg-success/15 text-success" : "border-border bg-muted text-muted-foreground")}>
+                    {r.active ? "Active" : "Paused"}
+                  </span>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <code className="rounded-lg bg-background/60 px-2.5 py-1 font-mono text-xs">{reveal ? r.apiKey : mask(r.apiKey)}</code>
+                  {reveal ? (
+                    <button onClick={() => void navigator.clipboard.writeText(r.apiKey).then(() => toast.success("Copied"))} aria-label="Copy key">
+                      <Copy className="h-3.5 w-3.5 text-muted-foreground" />
+                    </button>
+                  ) : null}
+                  <span className="text-xs text-muted-foreground">
+                    {r.uploads} uploads · {r.failures} failures · purpose: {r.purpose}
+                  </span>
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button onClick={() => void test(r._id)} disabled={busy === r._id} className="glass-soft flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-bold">
+                    {busy === r._id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                    Test
+                  </button>
+                  <button
+                    onClick={() =>
+                      void upsert({ id: r._id, provider: r.provider, label: r.label, apiKey: r.apiKey, purpose: r.purpose, active: !r.active }).then(() => toast.success("Updated."))
+                    }
+                    className="glass-soft rounded-xl px-3 py-1.5 text-xs font-bold"
+                  >
+                    {r.active ? "Pause" : "Activate"}
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Delete key “${r.label}”?`)) void remove({ id: r._id }).then(() => toast.success("Deleted."));
+                    }}
+                    className="flex items-center gap-1.5 rounded-xl bg-destructive/12 px-3 py-1.5 text-xs font-bold text-destructive"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </GlassCard>
+    </div>
+  );
+}
+
+/* ============================== settings ============================== */
+
+function SettingsPanel() {
+  const { settings } = useHope();
+  const update = useMutation(api.admin.adminUpdateSettings);
+  const uploader = useUploader();
+  const [busy, setBusy] = useState(false);
+
+  const set = async (key: string, value: unknown) => {
+    try {
+      await update({ [key]: value } as never);
+      toast.success("Settings saved.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not save");
+    }
+  };
+
+  const pickLogo = async (file: File) => {
+    setBusy(true);
+    try {
+      const url = await uploader(file);
+      await set("siteLogo", url);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <GlassCard className="max-w-xl space-y-4">
+      <h2 className="text-lg font-bold">Platform settings</h2>
+
+      <BrandingSettings settings={settings} set={set} pickLogo={pickLogo} busy={busy} />
+      <AnnouncementSettings settings={settings} set={set} />
+      <MaintenanceSettings settings={settings} set={set} />
+      <SalarySettings settings={settings} set={set} />
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {(
+          [
+            ["minDeposit", "Minimum deposit"],
+            ["minWithdraw", "Minimum withdrawal"],
+          ] as const
+        ).map(([k, label]) => (
+          <div key={k}>
+            <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">{label}</label>
+            <input
+              type="number"
+              defaultValue={String((settings as never)?.[k] ?? 0)}
+              onBlur={(e) => Number(e.target.value) !== Number((settings as never)?.[k]) && void set(k, Number(e.target.value) || 0)}
+              className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+            />
+          </div>
+        ))}
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Quick deposit amounts (comma separated)</label>
+        <input
+          defaultValue={(settings?.quickAmounts ?? []).join(", ")}
+          onBlur={(e) =>
+            void set(
+              "quickAmounts",
+              e.target.value.split(",").map((x) => Number(x.trim())).filter((n) => n > 0),
+            )
+          }
+          className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+        />
+      </div>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Referral commission levels (%)</label>
+        <div className="grid grid-cols-4 gap-2">
+          {(settings?.levels ?? []).map((lv, i) => (
+            <input
+              key={i}
+              defaultValue={lv}
+              type="number"
+              onBlur={(e) => {
+                const next = [...(settings?.levels ?? [])];
+                next[i] = Number(e.target.value) || 0;
+                void set("levels", next);
+              }}
+              className="h-12 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
+            />
+          ))}
+        </div>
+      </div>
+    </GlassCard>
+  );
+}
+
+function BrandingSettings({
+  settings,
+  set,
+  pickLogo,
+  busy,
+}: {
+  settings: ReturnType<typeof useHope>["settings"];
+  set: (key: string, value: unknown) => Promise<void>;
+  pickLogo: (file: File) => Promise<void>;
+  busy: boolean;
+}) {
+  return (
+    <div className="space-y-4 rounded-2xl border border-border/60 bg-background/30 p-4">
+      <p className="text-sm font-bold">Site branding</p>
+      <div>
+        <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Site name</label>
+        <input
+          defaultValue={settings?.siteName ?? "HopeX"}
+          onBlur={(e) => e.target.value !== (settings?.siteName ?? "HopeX") && void set("siteName", e.target.value)}
+          className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+        />
+      </div>
+      <div>
+        <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Site title (browser tab)</label>
+        <input
+          defaultValue={settings?.siteTitle ?? ""}
+          onBlur={(e) => e.target.value !== (settings?.siteTitle ?? "") && void set("siteTitle", e.target.value)}
+          className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+        />
+      </div>
+      <div>
+        <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Site logo</label>
+        <div className="flex items-center gap-3">
+          <div className="grid h-14 w-14 shrink-0 place-items-center overflow-hidden rounded-2xl gradient-brand font-display text-base font-black text-primary-foreground">
+            {settings?.siteLogo ? (
+              <img src={settings.siteLogo} alt={`${settings.siteName} logo`} className="h-full w-full object-cover" />
+            ) : (
+              (settings?.siteName?.[0] ?? "H")
+            )}
+          </div>
+          <div className="flex flex-1 flex-wrap gap-2">
+            <label className="btn-glass cursor-pointer rounded-xl px-4 py-2 text-xs font-semibold">
+              {busy ? "Uploading…" : settings?.siteLogo ? "Replace logo" : "Upload logo"}
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                disabled={busy}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void pickLogo(f);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            {settings?.siteLogo ? (
+              <button onClick={() => void set("siteLogo", "")} className="rounded-xl px-4 py-2 text-xs font-semibold text-destructive">
+                Remove
+              </button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function AnnouncementSettings({ settings, set }: { settings: ReturnType<typeof useHope>["settings"]; set: (key: string, value: unknown) => Promise<void> }) {
+  return (
+    <div className="rounded-2xl border border-border/60 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-bold">Announcement banner</p>
+        <button
+          onClick={() => void set("announcementActive", !(settings?.announcementActive ?? false))}
+          className={cn(
+            "rounded-full px-3 py-1 text-xs font-bold",
+            settings?.announcementActive ? "bg-success/15 text-success" : "bg-muted text-muted-foreground",
+          )}
+        >
+          {settings?.announcementActive ? "Live" : "Off"}
+        </button>
+      </div>
+      <textarea
+        defaultValue={settings?.announcementText ?? ""}
+        onBlur={(e) => e.target.value !== (settings?.announcementText ?? "") && void set("announcementText", e.target.value)}
+        rows={2}
+        placeholder="e.g. Withdrawals are processed daily between 8am and 8pm."
+        className="mt-3 w-full rounded-xl border border-input bg-background/40 p-3 text-sm outline-none"
+      />
+    </div>
+  );
+}
+
+function MaintenanceSettings({ settings, set }: { settings: ReturnType<typeof useHope>["settings"]; set: (key: string, value: unknown) => Promise<void> }) {
+  return (
+    <div className="rounded-2xl border border-border/60 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-bold">Maintenance mode</p>
+        <button
+          onClick={() => void set("maintenanceMode", !(settings?.maintenanceMode ?? false))}
+          className={cn(
+            "rounded-full px-3 py-1 text-xs font-bold",
+            settings?.maintenanceMode ? "bg-warning/15 text-warning" : "bg-muted text-muted-foreground",
+          )}
+        >
+          {settings?.maintenanceMode ? "Enabled" : "Disabled"}
+        </button>
+      </div>
+      <input
+        defaultValue={settings?.maintenanceMessage ?? ""}
+        onBlur={(e) => e.target.value !== (settings?.maintenanceMessage ?? "") && void set("maintenanceMessage", e.target.value)}
+        placeholder="We'll be back shortly."
+        className="mt-3 h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+      />
+    </div>
+  );
+}
+
+function SalarySettings({ settings, set }: { settings: ReturnType<typeof useHope>["settings"]; set: (key: string, value: unknown) => Promise<void> }) {
+  const tiers = settings?.salaryTiers ?? [];
+  return (
+    <div className="rounded-2xl border border-border/60 p-4">
+      <div className="flex items-center gap-2">
+        <Crown className="h-4 w-4 text-gold" />
+        <p className="text-sm font-bold">Rank salary tiers</p>
+      </div>
+      <div className="mt-3 space-y-2">
+        {tiers.map((t, i) => (
+          <div key={i} className="grid grid-cols-4 gap-2">
+            {(["rank", "team", "invested", "salary"] as const).map((k) => (
+              <input
+                key={k}
+                defaultValue={String(t[k])}
+                onBlur={(e) => {
+                  const next = tiers.map((x) => ({ ...x }));
+                  if (k === "rank") next[i]!.rank = e.target.value;
+                  else next[i] = { ...next[i]!, [k]: Number(e.target.value) || 0 };
+                  void set("salaryTiers", next);
+                }}
+                placeholder={k}
+                className="h-11 rounded-xl border border-input bg-background/40 px-3 text-xs outline-none"
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex gap-2">
+        <button
+          onClick={() => void set("salaryTiers", [...tiers, { rank: "New rank", team: 5, invested: 5000, salary: 500 }])}
+          className="btn-glass h-10 px-4 text-xs font-bold text-foreground"
+        >
+          Add tier
+        </button>
+        {tiers.length ? (
+          <button onClick={() => void set("salaryTiers", tiers.slice(0, -1))} className="btn-glass h-10 px-4 text-xs font-bold text-destructive">
+            Remove last
+          </button>
+        ) : null}
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        Columns: rank name, direct team required, personal investment required, monthly salary.
+      </p>
     </div>
   );
 }
 
 /* ============================== shared bits ============================== */
 
-function Stat({ label, value, hint, icon }: { label: string; value: string; hint?: string; icon: React.ReactNode }) {
-  return (
-    <GlassCard className="p-4">
-      <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">
-        <span className="text-primary">{icon}</span>
-        <span className="truncate">{label}</span>
-      </p>
-      <p className="mt-1 truncate font-display text-xl font-extrabold">{value}</p>
-      {hint ? <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p> : null}
-    </GlassCard>
-  );
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-3 border-b border-border/40 pb-2 last:border-0">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="font-bold">{value}</span>
-    </div>
-  );
-}
-
-function Field({
-  label,
-  value,
-  onChange,
-  type = "text",
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  type?: string;
-}) {
+function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-[10px] font-black uppercase tracking-widest text-muted-foreground">{label}</span>
+      <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{label}</span>
       <input
-        type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="h-12 w-full rounded-xl border border-input bg-background/40 px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+        inputMode="numeric"
+        className="mt-1 h-11 w-full rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
       />
     </label>
   );

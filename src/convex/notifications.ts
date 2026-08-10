@@ -89,3 +89,32 @@ export const adminNotify = mutation({
     });
   },
 });
+
+/**
+ * Admin: broadcast a notification to every user (or a chosen subset). Mirror of
+ * the original Broadcast tab — when `userIds` is omitted it goes to everyone.
+ */
+export const adminBroadcast = mutation({
+  args: {
+    title: v.string(),
+    body: v.string(),
+    userIds: v.optional(v.array(v.id("users"))),
+    kind: v.optional(v.string()),
+    popup: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { title, body, userIds, kind, popup }) => {
+    const admin = await requireAdmin(ctx);
+    let targets: typeof userIds = userIds;
+    if (!targets || targets.length === 0) {
+      const profiles = await ctx.db.query("profiles").collect();
+      targets = profiles.map((p) => p.userId);
+    }
+    for (const uid of targets) {
+      await pushNotification(ctx, uid, title, body, kind ?? "info", popup ?? false);
+    }
+    await logAudit(ctx, admin, "Broadcast sent", {
+      detail: `${title} · ${targets.length} users`,
+    });
+    return targets.length;
+  },
+});

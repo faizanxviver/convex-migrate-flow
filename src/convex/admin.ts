@@ -147,6 +147,172 @@ export const adminAdjustBalance = mutation({
   },
 });
 
+/** Admin sets a user's exact balance (mirror of the original "Set balance"). */
+export const adminSetBalance = mutation({
+  args: { userId: v.id("users"), balance: v.number() },
+  handler: async (ctx, { userId, balance }) => {
+    const admin = await requireAdmin(ctx);
+    if (!Number.isFinite(balance) || balance < 0) throw new Error("Invalid balance");
+    const profile = await getProfileByUserId(ctx, userId);
+    if (!profile) throw new Error("User not found");
+
+    const target = round2(balance);
+    const delta = round2(target - profile.balance);
+    const now = Date.now();
+    await ctx.db.patch(profile._id, { balance: target, updatedAt: now });
+
+    if (delta !== 0) {
+      await addTransaction(ctx, userId, {
+        type: delta > 0 ? "bonus" : "withdraw",
+        amount: Math.abs(delta),
+        method: "Balance correction",
+        status: "completed",
+        note: "Set by admin",
+      });
+      await pushNotification(
+        ctx,
+        userId,
+        delta > 0 ? "Balance credited" : "Balance adjusted",
+        `Your withdrawable balance was set to Rs ${target.toLocaleString("en-PK")} by support.`,
+        delta > 0 ? "success" : "info",
+        true,
+      );
+    }
+    await logAudit(ctx, admin, "Set balance", {
+      targetId: userId,
+      targetName: profile.name,
+      detail: `Rs ${target.toLocaleString("en-PK")}`,
+    });
+    return target;
+  },
+});
+
+/** Admin activates a plan for a user without payment (no commission paid). */
+export const adminActivatePlan = mutation({
+  args: { userId: v.id("users"), planId: v.string(), amount: v.number() },
+  handler: async (ctx, { userId, planId, amount }) => {
+    const admin = await requireAdmin(ctx);
+    const profile = await getProfileByUserId(ctx, userId);
+    if (!profile) throw new Error("User not found");
+    const plan = await ctx.db
+      .query("plans")
+      .withIndex("by_slug", (q) => q.eq("slug", planId))
+      .unique();
+    if (!plan) throw new Error("Plan not found");
+
+    const amt = round2(amount);
+    const now = Date.now();
+    await ctx.db.insert("investments", {
+      userId,
+      planId: plan.slug,
+      planName: plan.name,
+      amount: amt,
+      dailyRoi: plan.dailyRoi,
+      durationDays: plan.durationDays,
+      earned: 0,
+      startedAt: now,
+      lastPayoutAt: now,
+      createdAt: now,
+    });
+    await ctx.db.patch(profile._id, {
+      invested: round2(profile.invested + amt),
+      updatedAt: now,
+    });
+    await pushNotification(
+      ctx,
+      userId,
+      "Plan activated 🚀",
+      `${plan.name} plan activated for you by support.`,
+      "success",
+      true,
+    );
+    await logAudit(ctx, admin, "Activated plan", {
+      targetId: userId,
+      targetName: profile.name,
+      detail: `${plan.name} · Rs ${amt.toLocaleString("en-PK")}`,
+    });
+  },
+});
+
+/** Admin removes every investment for a user (mirror of "End all plans"). */
+export const adminEndPlans = mutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const admin = await requireAdmin(ctx);
+    const profile = await getProfileByUserId(ctx, userId);
+    if (!profile) throw new Error("User not found");
+    const rows = await ctx.db
+      .query("investments")
+      .withIndex("by_user", (q) => q.eq("userId", userId))
+      .collect();
+    for (const i of rows) await ctx.db.delete(i._id);
+    await ctx.db.patch(profile._id, { invested: 0, updatedAt: Date.now() });
+    await logAudit(ctx, admin, "Ended all plans", {
+      targetId: userId,
+      targetName: profile.name,
+      detail: `${rows.length} plans removed`,
+    });
+    return rows.length;
+  },
+});
+
+/** Admin clears the support chat thread for a user. */
+export const adminClearChat = mutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    const admin = await requireAdmin(ctx);
+    const profile = await getProfileByUserId(ctx, userId);
+    const rows = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_user_created", (q) => q.eq("userId", userId))
+      .collect();
+    for (const m of rows) await ctx.db.delete(m._id);
+    await logAudit(ctx, admin, "Cleared chat", {
+      targetId: userId,
+      targetName: profile?.name ?? "",
+      detail: `${rows.length} messages`,
+    });
+    return rows.length;
+  },
+});
+
+/** Admin credits a referral bonus (balance + referralEarnings + commission tx). */
+export const adminReferralBonus = mutation({
+  args: { userId: v.id("users"), amount: v.number() },
+  handler: async (ctx, { userId, amount }) => {
+    const admin = await requireAdmin(ctx);
+    const amt = round2(amount);
+    if (amt <= 0) throw new Error("Enter a valid amount");
+    const profile = await getProfileByUserId(ctx, userId);
+    if (!profile) throw new Error("User not found");
+
+    await ctx.db.patch(profile._id, {
+      balance: round2(profile.balance + amt),
+      referralEarnings: round2(profile.referralEarnings + amt),
+      updatedAt: Date.now(),
+    });
+    await addTransaction(ctx, userId, {
+      type: "commission",
+      amount: amt,
+      method: "Admin referral bonus",
+      status: "completed",
+    });
+    await pushNotification(
+      ctx,
+      userId,
+      "Referral bonus 🎁",
+      `Rs ${amt.toLocaleString("en-PK")} referral bonus credited by support.`,
+      "success",
+      true,
+    );
+    await logAudit(ctx, admin, "Referral bonus", {
+      targetId: userId,
+      targetName: profile.name,
+      detail: `Rs ${amt.toLocaleString("en-PK")}`,
+    });
+  },
+});
+
 // ============================================================================
 // Stats
 // ============================================================================
@@ -210,6 +376,10 @@ export const adminUpdateSettings = mutation({
     showProofsSection: v.optional(v.boolean()),
     withdrawOpenHour: v.optional(v.number()),
     withdrawCloseHour: v.optional(v.number()),
+    seoDescription: v.optional(v.string()),
+    seoKeywords: v.optional(v.string()),
+    ogImage: v.optional(v.string()),
+    siteFavicon: v.optional(v.string()),
   },
   handler: async (ctx, patch) => {
     const admin = await requireAdmin(ctx);
@@ -372,6 +542,27 @@ export const adminAuditLog = query({
     await requireAdmin(ctx);
     const rows = await ctx.db.query("auditLog").collect();
     return rows.sort((a, b) => b.createdAt - a.createdAt).slice(0, 200);
+  },
+});
+
+/** Admin: purge rejected/declined transactions older than N days (Tools tab). */
+export const adminPurgeDeclined = mutation({
+  args: { days: v.optional(v.number()) },
+  handler: async (ctx, { days }) => {
+    const admin = await requireAdmin(ctx);
+    const cutoff = Date.now() - (days ?? 30) * 86400000;
+    const rows = await ctx.db.query("transactions").collect();
+    let removed = 0;
+    for (const t of rows) {
+      if (t.status === "rejected" && t.createdAt < cutoff) {
+        await ctx.db.delete(t._id);
+        removed += 1;
+      }
+    }
+    await logAudit(ctx, admin, "Purged declined records", {
+      detail: `${removed} records older than ${days ?? 30} days removed`,
+    });
+    return removed;
   },
 });
 

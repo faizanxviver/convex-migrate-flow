@@ -62,6 +62,36 @@ export const recordKeyUsage = mutation({
 });
 
 /**
+ * Admin: verify an imgbb API key by uploading a tiny 1×1 test image.
+ * Returns { ok, error? } — mirrors the original testApiKey() server fn.
+ */
+export const testApiKey = action({
+  args: { id: v.id("apiKeys") },
+  handler: async (ctx, { id }) => {
+    const userId = await getAuthUserId(ctx);
+    if (userId === null) throw new Error("Not authenticated");
+    const rows = await ctx.runQuery(api.admin.adminListApiKeys, {});
+    const row = rows.find((k) => k._id === id);
+    if (!row) return { ok: false, error: "Key not found" };
+
+    try {
+      const body = new FormData();
+      body.append("key", row.apiKey);
+      body.append(
+        "image",
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+      );
+      const res = await fetch("https://api.imgbb.com/1/upload", { method: "POST", body });
+      const json = (await res.json()) as { success?: boolean; error?: { message?: string } };
+      if (res.ok && json.success) return { ok: true };
+      return { ok: false, error: json.error?.message ?? `Upload failed (${res.status})` };
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : "Test failed" };
+    }
+  },
+});
+
+/**
  * Uploads a base64 image to imgbb and returns the hosted URL. Keys come from
  * the admin-managed pool (table api_keys); the IMGBB_API_KEY secret is used as
  * a fallback when the pool is empty. If a key fails, the next one is tried —

@@ -41,20 +41,23 @@ export const ensureProfile = mutation({
 
     const email = user.email ?? "";
     const name = (user.name ?? email.split("@")[0] ?? "Investor").trim() || "Investor";
+    const phone = user.phone || undefined;
+    const refCode =
+      referredBy?.trim().toUpperCase() || user.referredBy || undefined;
     const now = Date.now();
 
     const profileId = await ctx.db.insert("profiles", {
       userId,
       name,
       email: email || undefined,
-      phone: undefined,
+      phone,
       verified: true,
       blocked: false,
       kyc: "not_submitted",
       twoFactor: false,
       language: "en",
       referralCode: code,
-      referredBy: referredBy?.trim().toUpperCase() || undefined,
+      referredBy: refCode,
       balance: 0,
       invested: 0,
       earnings: 0,

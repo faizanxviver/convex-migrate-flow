@@ -10,7 +10,6 @@ import {
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { StatusBadge } from "./glass";
-import { isStorageRef, StorageImage } from "./storage-image";
 
 const TYPE_META: Record<string, { icon: typeof Gift; tone: string }> = {
   deposit: { icon: ArrowDownLeft, tone: "bg-success/15 text-success" },
@@ -65,19 +64,11 @@ export function TxList({
               </span>
               {tx.proofUrl ? (
                 <span className="mt-1.5 block">
-                  {isStorageRef(tx.proofUrl) ? (
-                    <StorageImage
-                      storageId={tx.proofUrl}
-                      alt="proof"
-                      className="h-16 w-16 rounded-xl object-cover ring-1 ring-border"
-                    />
-                  ) : (
-                    <img
-                      src={tx.proofUrl}
-                      alt="proof"
-                      className="h-16 w-16 rounded-xl object-cover ring-1 ring-border"
-                    />
-                  )}
+                  <img
+                    src={tx.proofUrl}
+                    alt="proof"
+                    className="h-16 w-16 rounded-xl object-cover ring-1 ring-border"
+                  />
                 </span>
               ) : null}
             </span>

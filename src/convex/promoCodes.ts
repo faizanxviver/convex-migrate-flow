@@ -1,6 +1,14 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { logAudit, requireAdmin, requireUser, round2 } from "./helpers";
+import {
+  addTransaction,
+  getProfileByUserId,
+  logAudit,
+  pushNotification,
+  requireAdmin,
+  requireUser,
+  round2,
+} from "./helpers";
 
 /**
  * Redeem a promo code against a purchase amount. Mirrors the SQL
@@ -10,7 +18,7 @@ import { logAudit, requireAdmin, requireUser, round2 } from "./helpers";
 export const redeemPromo = mutation({
   args: { code: v.string(), amount: v.number() },
   handler: async (ctx, { code, amount }) => {
-    await requireUser(ctx);
+    const userId = await requireUser(ctx);
     const clean = code.trim().toUpperCase();
     if (!clean) throw new Error("Enter a promo code");
 
@@ -27,9 +35,41 @@ export const redeemPromo = mutation({
       return null;
     }
 
+    const profile = await getProfileByUserId(ctx, userId);
+    if (!profile) throw new Error("Profile not found");
+    if (profile.blocked) throw new Error("Account suspended");
+
     await ctx.db.patch(p._id, { used: p.used + 1 });
-    const bonus = p.type === "percent" ? round2((Number(amount) || 0) * (p.value / 100)) : p.value;
-    return { bonus: round2(bonus), code: p.code };
+    const bonus = round2(
+      p.type === "percent" ? (Number(amount) || 0) * (p.value / 100) : p.value,
+    );
+
+    // Credit the bonus to the withdrawable balance and record a ledger entry —
+    // the same behaviour as the original client-side update, but server-side
+    // so it cannot be tampered with.
+    if (bonus > 0) {
+      await ctx.db.patch(profile._id, {
+        balance: round2(profile.balance + bonus),
+        updatedAt: Date.now(),
+      });
+      await addTransaction(ctx, userId, {
+        type: "bonus",
+        amount: bonus,
+        method: `Promo ${p.code}`,
+        status: "completed",
+        note: "Promo bonus",
+      });
+      await pushNotification(
+        ctx,
+        userId,
+        "Promo bonus credited",
+        `Rs ${bonus.toLocaleString("en-PK")} was added to your withdrawable balance.`,
+        "success",
+        true,
+      );
+    }
+
+    return { bonus, code: p.code };
   },
 });
 

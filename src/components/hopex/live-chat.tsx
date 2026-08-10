@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { useHope } from "@/hooks/use-hope";
 import { fmtTime } from "@/lib/hopex";
 import { cn } from "@/lib/utils";
-import { isStorageRef, StorageImage, useUploader } from "./storage-image";
+import { useUploader } from "./storage-image";
 
 export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { chat, profile } = useHope();
@@ -79,11 +79,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
               >
                 {m.attachment?.url ? (
                   <div className="mb-1 overflow-hidden rounded-md">
-                    {isStorageRef(m.attachment.url) ? (
-                      <StorageImage storageId={m.attachment.url} alt={m.attachment.name} className="max-h-52 w-full object-cover" />
-                    ) : (
-                      <img src={m.attachment.url} alt={m.attachment.name} className="max-h-52 w-full object-cover" />
-                    )}
+                    <img src={m.attachment.url} alt={m.attachment.name} className="max-h-52 w-full object-cover" />
                   </div>
                 ) : null}
                 {m.text ? <span className="whitespace-pre-wrap">{m.text}</span> : null}

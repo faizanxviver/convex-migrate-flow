@@ -2,9 +2,9 @@
 
 This project is a full migration of the old HopeX app (originally a Lovable +
 Supabase project, see `faizanxviver/hopex`) onto this Freebuff stack: **Convex**
-replaces Supabase for the database, and **Convex Auth** (email OTP + anonymous)
-replaces Supabase Auth. Old user data was **not** migrated — every account starts
-fresh at Rs 0.
+replaces Supabase for the database, and **Convex Auth** (password provider —
+mobile number/email + password, no verification) replaces Supabase Auth. Old
+user data was **not** migrated — every account starts fresh at Rs 0.
 
 ## Migration map (Supabase → Convex)
 
@@ -27,7 +27,7 @@ Every original table became a Convex table in `src/convex/schema.ts`:
 | `leader_plans` | `leaderPlans` | `convex/leaderPlans.ts` |
 | `api_keys` | `apiKeys` | `convex/admin.ts` |
 | `withdrawal_proofs` | `withdrawalProofs` | `convex/proofs.ts` |
-| `checkout_sessions` | `checkoutSessions` | `schema.ts` (reserved for the external gateway plan) |
+| `checkout_sessions` | `checkoutSessions` | `convex/checkout.ts` (MPay gateway) |
 
 SQL functions were ported 1:1 to Convex mutations, e.g.
 `buy_plan()` → `api.investments.buyPlan`, `claim_earnings()` →
@@ -38,11 +38,17 @@ SQL functions were ported 1:1 to Convex mutations, e.g.
 
 ## Key flows
 
-- **Sign up / sign in** — `/auth` (email OTP or guest). Profile + welcome
-  notification are created automatically on first load (`useHope` bootstrap).
-  Emails `admin@hopex.io` / `admin@aurum.io` are auto-promoted to admin.
-- **Deposit** — user picks a payment method, pays, uploads a screenshot; an
-  admin approves it in the admin panel to credit the balance.
+- **Sign up / sign in** — `/auth` with login/signup tabs (full name, mobile
+  number or email, password, optional referral code) — accounts are created
+  instantly, no email verification (exactly like the original site). Profile +
+  welcome notification are created automatically on first load (`useHope`
+  bootstrap). Emails `admin@hopex.io` / `admin@aurum.io` are auto-promoted to
+  admin.
+- **Deposit** — the user picks an amount and is sent to the external **MPay
+  gateway** (`https://mintage.site/checkout?token=...`). The gateway reads the
+  order via `GET /checkout/session` and reports the paid proof back via
+  `POST /checkout/submit` (protected by `GATEWAY_SHARED_SECRET`), which creates
+  a processing deposit transaction; an admin approves it to credit the balance.
 - **Invest** — `buyPlan` deducts the balance, credits day-1 income instantly and
   pays 4-level referral commissions (`settings.levels`).
 - **Withdraw** — only during the configured PKT window, with a bound payout
@@ -63,7 +69,9 @@ SQL functions were ported 1:1 to Convex mutations, e.g.
 
 Shared data comes from `src/hooks/use-hope.ts` (user-facing) and
 `src/hooks/use-admin.ts` (admin); money/format helpers live in `src/lib/hopex.ts`.
-Image proofs use Convex file storage (`generateUploadUrl` + `StorageImage`).
+All images (reward proofs, payout proofs, chat attachments) are uploaded to
+**imgbb** via `api.upload.uploadImage` (admin-managed key pool in the admin
+panel + `IMGBB_API_KEY` fallback) and stored as hosted URLs.
 
 ---
 
@@ -98,6 +106,14 @@ The convex server has a separate set of environment variables that are accessibl
 
 Currently, these variables include auth-specific keys: JWKS, JWT_PRIVATE_KEY, and SITE_URL.
 
+Additional runtime secrets you should add via the Keys/API keys UI:
+
+| Variable | Purpose |
+| --- | --- |
+| `GATEWAY_SHARED_SECRET` | Shared secret the MPay gateway must send as `x-gateway-key` when calling `POST /checkout/submit`. The gateway also needs the app's callback URL (`https://<deployment>.convex.site/checkout/session` and `/checkout/submit`). |
+| `IMGBB_API_KEY` | Fallback imgbb key used when no keys are configured in the admin panel. |
+| `SITE_URL` | The app's public origin (used for the gateway's `return_url`); defaults to `https://hopex.site`. |
+
 
 # Using Authentication (Important!)
 
@@ -105,11 +121,10 @@ You must follow these conventions when using authentication.
 
 ## Auth is already set up.
 
-All convex authentication functions are already set up. The auth currently uses email OTP and anonymous users, but can support more.
-
-The email OTP configuration is defined in `src/convex/auth/emailOtp.ts`. DO NOT MODIFY THIS FILE.
-
-Also, DO NOT MODIFY THESE AUTH FILES: `src/convex/auth.config.ts` and `src/convex/auth.ts`.
+All convex authentication functions are already set up. The auth uses the
+**Password** provider (`src/convex/auth.ts`) — mobile number/email + password
+with instant account creation (no email verification or OTP), matching the
+original HopeX site.
 
 ## Using Convex Auth on the backend
 

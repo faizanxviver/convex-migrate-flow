@@ -1,6 +1,6 @@
 import { api } from "@/convex/_generated/api";
 import { GlassCard, SectionTitle, StatusBadge } from "@/components/hopex/glass";
-import { StorageImage, isStorageRef, useUploader } from "@/components/hopex/storage-image";
+import { useUploader } from "@/components/hopex/storage-image";
 import { useHope } from "@/hooks/use-hope";
 import { fmtDateTime, money } from "@/lib/hopex";
 import { useMutation } from "convex/react";
@@ -98,18 +98,10 @@ export default function RewardsPage() {
                 {(c.whatsappProof || c.facebookProof) ? (
                   <span className="mt-1.5 flex gap-2">
                     {c.whatsappProof ? (
-                      isStorageRef(c.whatsappProof) ? (
-                        <StorageImage storageId={c.whatsappProof} alt="WhatsApp proof" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
-                      ) : (
-                        <img src={c.whatsappProof} alt="WhatsApp proof" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
-                      )
+                      <img src={c.whatsappProof} alt="WhatsApp proof" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
                     ) : null}
                     {c.facebookProof ? (
-                      isStorageRef(c.facebookProof) ? (
-                        <StorageImage storageId={c.facebookProof} alt="Facebook proof" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
-                      ) : (
-                        <img src={c.facebookProof} alt="Facebook proof" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
-                      )
+                      <img src={c.facebookProof} alt="Facebook proof" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
                     ) : null}
                   </span>
                 ) : null}

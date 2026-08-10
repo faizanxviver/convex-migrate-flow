@@ -1,36 +1,21 @@
 import { api } from "@/convex/_generated/api";
-import { GlassCard, LedgerHeader, MoneyStat } from "@/components/hopex/glass";
-import { useUploader } from "@/components/hopex/storage-image";
+import { LedgerHeader, MoneyStat } from "@/components/hopex/glass";
 import { useHope } from "@/hooks/use-hope";
 import { depositBalance, money, pendingDeposits } from "@/lib/hopex";
 import { cn } from "@/lib/utils";
 import { useMutation } from "convex/react";
-import {
-  ArrowDownLeft,
-  CheckCircle2,
-  Clock,
-  Copy,
-  ImagePlus,
-  Loader2,
-  ShieldCheck,
-  Wallet,
-  X,
-} from "lucide-react";
+import { ArrowDownLeft, Clock, Loader2, ShieldCheck, Wallet, Zap } from "lucide-react";
 import { useState } from "react";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
 export default function DepositPage() {
-  const { profile, settings, methods, transactions } = useHope();
-  const requestDeposit = useMutation(api.transactions.requestDeposit);
-  const upload = useUploader();
+  const { profile, settings, transactions } = useHope();
+  const createSession = useMutation(api.checkout.createSession);
   const navigate = useNavigate();
   const [amount, setAmount] = useState<string>("");
-  const [methodId, setMethodId] = useState<string | null>(
-    methods[0]?._id ?? null,
-  );
-  const [proofFile, setProofFile] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
+  const [connecting, setConnecting] = useState(false);
 
   if (!profile) return null;
 
@@ -38,39 +23,43 @@ export default function DepositPage() {
   const minDeposit = settings?.minDeposit ?? 1000;
   const deposited = depositBalance(transactions, profile.userId);
   const pending = pendingDeposits(transactions, profile.userId);
-  const method = methods.find((m) => m._id === methodId) ?? methods[0];
 
-  const submit = async (e: React.FormEvent) => {
+  const openGateway = async (e: React.FormEvent) => {
     e.preventDefault();
     const value = Number(amount);
     if (!value || value < minDeposit) {
       return toast.error(`Minimum deposit is ${money(minDeposit)}.`);
     }
     setBusy(true);
+    setConnecting(true);
     try {
-      let proofUrl: string | undefined;
-      if (proofFile) {
-        proofUrl = await upload(proofFile);
+      const session = await createSession({ amount: value });
+      // Keep the connecting screen visible for a moment, then open MPay in a new tab.
+      await new Promise((r) => setTimeout(r, 1200));
+      const tab = window.open(session.url, "_blank", "noopener,noreferrer");
+      setConnecting(false);
+      setBusy(false);
+      if (!tab) {
+        // Popup blocked — send the user straight to the gateway instead of hanging.
+        window.location.href = session.url;
+        return;
       }
-      await requestDeposit({
-        amount: value,
-        methodId: method?._id,
-        proofUrl,
-      });
-      toast.success("Deposit submitted — awaiting admin approval.");
+      toast.success("MPay opened in a new tab. Complete your payment there.");
       navigate("/dashboard/deposit-history");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message.replace(/^.*?:\s*/, "") : "Could not submit deposit");
-    } finally {
+      setConnecting(false);
       setBusy(false);
+      toast.error(err instanceof Error ? err.message : "Could not open the payment gateway.");
     }
   };
 
   return (
     <div className="space-y-4 pb-24">
+      {connecting ? <ConnectingOverlay amount={Number(amount)} /> : null}
+
       <LedgerHeader
         title="Deposit funds"
-        subtitle={`Pick an amount and a payment method. Minimum ${money(minDeposit)}.`}
+        subtitle={`Pick an amount, then pay inside the secure MPay gateway. Minimum ${money(minDeposit)}.`}
         icon={<ArrowDownLeft className="h-5 w-5" />}
       />
 
@@ -94,7 +83,7 @@ export default function DepositPage() {
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
         <div className="relative overflow-hidden rounded-[2rem] glass p-5">
           <span className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-primary/20 blur-3xl" />
-          <form onSubmit={submit} className="relative space-y-5">
+          <form onSubmit={openGateway} className="relative space-y-5">
             <div>
               <p className="mb-3 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
                 Quick amount
@@ -137,105 +126,21 @@ export default function DepositPage() {
               </div>
             </div>
 
-            {/* Payment method */}
-            <div>
-              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                Payment method
-              </p>
-              <div className="grid gap-2 sm:grid-cols-3">
-                {methods.map((m) => (
-                  <button
-                    type="button"
-                    key={m._id}
-                    onClick={() => setMethodId(m._id)}
-                    className={cn(
-                      "rounded-2xl border p-3 text-left transition",
-                      method?._id === m._id
-                        ? "border-primary bg-primary/10"
-                        : "border-border glass-soft",
-                    )}
-                  >
-                    <p className="text-sm font-bold">{m.name}</p>
-                    <p className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                      {m.accountName}
-                    </p>
-                    <p className="truncate font-mono text-[11px] text-muted-foreground">{m.accountNumber}</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {method ? (
-              <div className="rounded-2xl glass-soft p-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold">{method.name}</p>
-                    <p className="truncate text-sm text-muted-foreground">{method.instructions}</p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      navigator.clipboard?.writeText(method.accountNumber);
-                      toast.success("Account number copied");
-                    }}
-                    className="shrink-0 rounded-xl bg-primary/15 p-2.5 text-primary transition hover:bg-primary/25"
-                  >
-                    <Copy className="h-4 w-4" />
-                  </button>
-                </div>
-                <p className="mt-2 rounded-xl bg-background/50 px-3 py-2 font-mono text-sm font-bold">
-                  {method.accountName} · {method.accountNumber}
-                </p>
-              </div>
-            ) : null}
-
-            {/* Proof upload */}
-            <div>
-              <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">
-                Payment screenshot (recommended)
-              </p>
-              {proofFile ? (
-                <div className="flex items-center justify-between gap-3 rounded-2xl glass-soft px-4 py-3">
-                  <span className="flex min-w-0 items-center gap-2 text-sm">
-                    <ImagePlus className="h-4 w-4 shrink-0 text-success" />
-                    <span className="truncate">{proofFile.name}</span>
-                  </span>
-                  <button type="button" onClick={() => setProofFile(null)} aria-label="Remove">
-                    <X className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                </div>
-              ) : (
-                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-border bg-background/30 py-5 text-sm font-semibold text-muted-foreground transition hover:border-primary/50 hover:text-foreground">
-                  <ImagePlus className="h-5 w-5" /> Tap to attach a screenshot
-                  <input
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const f = e.target.files?.[0];
-                      if (f) setProofFile(f);
-                      e.target.value = "";
-                    }}
-                  />
-                </label>
-              )}
-            </div>
-
             <button
               disabled={busy}
               className="btn-glass btn-glass-primary flex h-14 w-full items-center justify-center gap-2 text-base font-black disabled:opacity-60"
             >
               {busy ? (
                 <>
-                  <Loader2 className="h-4 w-4 animate-spin" /> Submitting…
+                  <Loader2 className="h-4 w-4 animate-spin" /> Connecting to MPay…
                 </>
               ) : (
-                "Submit deposit request"
+                "Submit & continue — MPay"
               )}
             </button>
             <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-muted-foreground">
-              <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" /> Funds credit to your
-              balance after admin verification.
+              <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" /> You'll be taken to our
+              automatic gateway to select a method, pay and upload your screenshot.
             </p>
           </form>
         </div>
@@ -243,14 +148,15 @@ export default function DepositPage() {
         <div className="space-y-4">
           <div className="rounded-[2rem] glass p-5">
             <p className="flex items-center gap-2 text-sm font-black">
-              <CheckCircle2 className="h-4 w-4 text-gold" /> How it works
+              <Zap className="h-4 w-4 text-gold" /> How it works
             </p>
             <ol className="mt-4 space-y-3">
               {[
-                "Pick an amount and a payment method.",
-                "Send the exact amount to the displayed account.",
-                "Attach your payment screenshot.",
-                "Submit — funds credit after admin approval.",
+                "Pick an amount and submit.",
+                "The secure MPay gateway opens.",
+                "Choose a method and copy the account number.",
+                "Pay, upload the screenshot and submit.",
+                "Funds credit after approval.",
               ].map((step, i) => (
                 <li key={step} className="flex items-start gap-3 text-xs text-muted-foreground">
                   <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-primary/12 text-[11px] font-black text-primary">
@@ -260,8 +166,40 @@ export default function DepositPage() {
                 </li>
               ))}
             </ol>
+            <Link
+              to="/dashboard/deposit-history"
+              className="mt-5 flex h-11 items-center justify-center rounded-2xl gradient-cool text-sm font-black text-primary-foreground shadow-lg shadow-primary/20"
+            >
+              Deposit history
+            </Link>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ConnectingOverlay({ amount }: { amount: number }) {
+  return (
+    <div className="fixed inset-0 z-[120] grid place-items-center bg-background/80 p-6 backdrop-blur-xl">
+      <div className="animate-rise w-full max-w-sm rounded-[2rem] border border-border/50 bg-background/50 p-8 text-center shadow-[var(--shadow-elegant)] backdrop-blur-2xl">
+        <div className="relative mx-auto grid h-24 w-24 place-items-center">
+          <span className="absolute inset-0 animate-ping rounded-full bg-primary/20" />
+          <span className="relative grid h-20 w-20 place-items-center rounded-3xl gradient-brand text-primary-foreground">
+            <Loader2 className="h-9 w-9 animate-spin [animation-duration:0.5s]" />
+          </span>
+        </div>
+        <h2 className="mt-6 font-display text-2xl font-black">Connecting to MPay</h2>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Securing your session{amount ? ` for ${money(amount)}` : ""} — redirecting to the payment
+          gateway…
+        </p>
+        <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-muted">
+          <div className="h-full w-1/3 animate-[scroll_0.7s_linear_infinite] rounded-full gradient-cool" />
+        </div>
+        <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+          <ShieldCheck className="h-3.5 w-3.5 text-success" /> Encrypted MPay session
+        </p>
       </div>
     </div>
   );

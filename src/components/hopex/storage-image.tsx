@@ -1,50 +1,32 @@
 import { api } from "@/convex/_generated/api";
-import { Id } from "@/convex/_generated/dataModel";
-import { useMutation, useQuery } from "convex/react";
+import { useAction } from "convex/react";
 import { useCallback } from "react";
 
-/** Upload a file to Convex storage and return its storage id. */
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error ?? new Error("Could not read the file"));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Upload a proof/chat image to imgbb and return its hosted URL. All images in
+ * HopeX are hosted on imgbb (admin-managed key pool + IMGBB_API_KEY fallback)
+ * so both the app and the MPay gateway can render them.
+ */
 export function useUploader() {
-  const generateUploadUrl = useMutation(api.helpers.generateUploadUrl);
+  const uploadImage = useAction(api.upload.uploadImage);
 
   return useCallback(
-    async (file: File): Promise<Id<"_storage">> => {
-      const url = await generateUploadUrl();
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": file.type || "application/octet-stream" },
-        body: file,
-      });
-      if (!res.ok) {
-        const text = await res.text().catch(() => "");
-        throw new Error(text ? `Upload failed: ${text}` : "Upload failed");
-      }
-      const json = (await res.json()) as { storageId: string };
-      return json.storageId as Id<"_storage">;
+    async (file: File): Promise<string> => {
+      const dataUrl = await fileToBase64(file);
+      const base64 = dataUrl.split(",")[1] ?? "";
+      if (!base64) throw new Error("Could not read the image file");
+      const res = await uploadImage({ base64, name: file.name });
+      return res.url;
     },
-    [generateUploadUrl],
+    [uploadImage],
   );
-}
-
-/** Renders a stored file by storage id (resolves the URL reactively). */
-export function StorageImage({
-  storageId,
-  alt,
-  className,
-}: {
-  storageId: string;
-  alt?: string;
-  className?: string;
-}) {
-  const url = useQuery(api.helpers.getStorageUrl, {
-    storageId: storageId as Id<"_storage">,
-  });
-  if (!url) {
-    return <div className={`animate-pulse bg-muted ${className ?? ""}`} />;
-  }
-  return <img src={url} alt={alt ?? ""} className={className} />;
-}
-
-export function isStorageRef(value?: string) {
-  return Boolean(value && !value.startsWith("http"));
 }

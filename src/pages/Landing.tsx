@@ -38,13 +38,13 @@ export default function Landing() {
           </Link>
           <div className="flex shrink-0 items-center gap-2">
             <Link
-              to={user ? "/dashboard" : "/auth"}
+              to={user ? "/dashboard" : "/auth?mode=login"}
               className="rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition hover:text-foreground"
             >
               {user ? "Dashboard" : "Sign in"}
             </Link>
             <Link
-              to={user ? "/dashboard/plans" : "/auth"}
+              to={user ? "/dashboard/plans" : "/auth?mode=signup"}
               className="btn-glass btn-glass-primary px-5 py-2 text-sm font-bold"
             >
               Get started
@@ -67,7 +67,7 @@ export default function Landing() {
         </p>
         <div className="animate-rise mt-7 flex flex-wrap items-center justify-center gap-3">
           <Link
-            to="/auth"
+            to="/auth?mode=signup"
             className="btn-glass btn-glass-primary inline-flex items-center gap-2 px-7 py-3.5 text-base font-bold"
           >
             Start investing <ArrowRight className="h-4 w-4" />
@@ -144,7 +144,7 @@ export default function Landing() {
                   ))}
                 </div>
                 <Link
-                  to="/auth"
+                  to="/auth?mode=signup"
                   className="btn-glass btn-glass-primary mt-4 block px-4 py-2.5 text-center text-sm font-bold"
                 >
                   Invest now
@@ -219,7 +219,7 @@ export default function Landing() {
               activate.
             </p>
             <Link
-              to="/auth"
+              to="/auth?mode=signup"
               className="btn-glass btn-glass-primary mx-auto mt-6 inline-flex items-center gap-2 px-8 py-4 text-base font-bold"
             >
               Create your account <ArrowRight className="h-4 w-4" />

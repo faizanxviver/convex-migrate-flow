@@ -1,6 +1,5 @@
 import { api } from "@/convex/_generated/api";
 import { GlassCard, SectionTitle, StatusBadge } from "@/components/hopex/glass";
-import { StorageImage, isStorageRef } from "@/components/hopex/storage-image";
 import { useAdminData } from "@/hooks/use-admin";
 import { useHope } from "@/hooks/use-hope";
 import {
@@ -424,11 +423,7 @@ function TransactionsTab() {
                   {t.note ? ` · ${t.note}` : ""}
                 </p>
                 {t.proofUrl ? (
-                  isStorageRef(t.proofUrl) ? (
-                    <StorageImage storageId={t.proofUrl} alt="proof" className="mt-1.5 h-16 w-16 rounded-xl object-cover ring-1 ring-border" />
-                  ) : (
-                    <img src={t.proofUrl} alt="proof" className="mt-1.5 h-16 w-16 rounded-xl object-cover ring-1 ring-border" />
-                  )
+                  <img src={t.proofUrl} alt="proof" className="mt-1.5 h-16 w-16 rounded-xl object-cover ring-1 ring-border" />
                 ) : null}
               </div>
               {(t.status === "pending" || t.status === "processing") &&
@@ -749,11 +744,7 @@ function ChatTab() {
                   <div className={cn("wa-bubble", m.sender === "user" ? "wa-out wa-bubble-out" : "wa-in wa-bubble-in")}>
                     {m.attachment?.url ? (
                       <div className="mb-1 overflow-hidden rounded-md">
-                        {isStorageRef(m.attachment.url) ? (
-                          <StorageImage storageId={m.attachment.url} alt={m.attachment.name} className="max-h-40 w-full object-cover" />
-                        ) : (
-                          <img src={m.attachment.url} alt={m.attachment.name} className="max-h-40 w-full object-cover" />
-                        )}
+                        <img src={m.attachment.url} alt={m.attachment.name} className="max-h-40 w-full object-cover" />
                       </div>
                     ) : null}
                     {m.text}
@@ -842,18 +833,10 @@ function RewardsTab() {
                   <p className="text-[11px] text-muted-foreground">{fmtDateTime(c.createdAt)}</p>
                   <span className="mt-1.5 flex gap-2">
                     {c.whatsappProof ? (
-                      isStorageRef(c.whatsappProof) ? (
-                        <StorageImage storageId={c.whatsappProof} alt="wa" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
-                      ) : (
-                        <img src={c.whatsappProof} alt="wa" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
-                      )
+                      <img src={c.whatsappProof} alt="wa" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
                     ) : null}
                     {c.facebookProof ? (
-                      isStorageRef(c.facebookProof) ? (
-                        <StorageImage storageId={c.facebookProof} alt="fb" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
-                      ) : (
-                        <img src={c.facebookProof} alt="fb" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
-                      )
+                      <img src={c.facebookProof} alt="fb" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
                     ) : null}
                   </span>
                 </div>
@@ -892,11 +875,7 @@ function RewardsTab() {
                   </p>
                   <p className="text-[11px] text-muted-foreground">{fmtDateTime(p.createdAt)}</p>
                   <span className="mt-1.5 block">
-                    {isStorageRef(p.imageUrl) ? (
-                      <StorageImage storageId={p.imageUrl} alt="payout proof" className="h-20 w-20 rounded-xl object-cover ring-1 ring-border" />
-                    ) : (
-                      <img src={p.imageUrl} alt="payout proof" className="h-20 w-20 rounded-xl object-cover ring-1 ring-border" />
-                    )}
+                    <img src={p.imageUrl} alt="payout proof" className="h-20 w-20 rounded-xl object-cover ring-1 ring-border" />
                   </span>
                 </div>
                 {p.status === "pending" ? (
@@ -1224,7 +1203,7 @@ function SettingsTab() {
         </div>
         {apiKeys.length === 0 ? (
           <p className="border-t border-border/40 p-4 text-sm text-muted-foreground">
-            No keys — image uploads use built-in Convex storage instead.
+            No keys — image uploads fall back to the IMGBB_API_KEY environment variable.
           </p>
         ) : (
           apiKeys.map((k) => (

@@ -120,6 +120,8 @@ const schema = defineSchema(
       emailVerificationTime: v.optional(v.number()),
       isAnonymous: v.optional(v.boolean()),
       role: v.optional(roleValidator), // admin | user (user_roles equivalent)
+      phone: v.optional(v.string()), // mobile number captured at signup
+      referredBy: v.optional(v.string()), // referral code captured at signup
     }).index("email", ["email"]),
 
     // ---- profiles (was public.profiles) -----------------------------------

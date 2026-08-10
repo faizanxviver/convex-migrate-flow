@@ -66,8 +66,8 @@ export const createSession = mutation({
  * the order details plus the active payment methods the gateway can display.
  */
 export const getCheckoutSession = query({
-  args: { token: v.string() },
-  handler: async (ctx, { token }) => {
+  args: { token: v.string(), siteOrigin: v.optional(v.string()) },
+  handler: async (ctx, { token, siteOrigin }) => {
     const session = await ctx.db
       .query("checkoutSessions")
       .withIndex("by_token", (q) => q.eq("token", token))
@@ -84,6 +84,13 @@ export const getCheckoutSession = query({
     const methods = await ctx.db.query("paymentMethods").collect();
     const active = methods.filter((m) => m.active).sort((a, b) => a.sortOrder - b.sortOrder);
 
+    // Return-to-site URL: explicit SITE_URL wins, then the origin the gateway
+    // called us from, then the legacy domain as a last resort.
+    const base =
+      process.env.SITE_URL?.trim() ||
+      (siteOrigin && /^https?:\/\/[^/]+$/.test(siteOrigin) ? siteOrigin : "") ||
+      "https://hopex.site";
+
     return {
       status: "ok",
       token: session.token,
@@ -91,7 +98,7 @@ export const getCheckoutSession = query({
       amount: session.amount,
       currency: "PKR",
       merchant_name: "HopeX",
-      return_url: `${process.env.SITE_URL ?? "https://hopex.site"}/dashboard/deposit-history`,
+      return_url: `${base}/dashboard/deposit-history`,
       expires_at: session.expiresAt,
       methods: active.map((m) => ({
         id: m._id,

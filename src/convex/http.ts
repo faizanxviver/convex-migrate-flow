@@ -20,7 +20,7 @@ function corsHeaders(origin: string | null, methods: string) {
   return {
     "Access-Control-Allow-Origin": allow,
     "Access-Control-Allow-Methods": methods,
-    "Access-Control-Allow-Headers": "content-type,x-gateway-key",
+    "Access-Control-Allow-Headers": "content-type,x-gateway-key,x-gateway-secret,authorization",
     "Access-Control-Max-Age": "86400",
     Vary: "Origin",
   } as Record<string, string>;
@@ -32,6 +32,54 @@ function safeEqual(a: string, b: string) {
   let diff = 0;
   for (let i = 0; i < a.length; i += 1) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
+}
+
+/** Strip an arbitrary Origin/Referer down to a bare https?://host. */
+function siteOriginOf(raw: string | null): string {
+  if (!raw) return "";
+  try {
+    const u = new URL(raw);
+    return u.protocol === "http:" || u.protocol === "https:" ? u.origin : "";
+  } catch {
+    return "";
+  }
+}
+
+/** Accept JSON or form-encoded bodies — whichever the gateway sends. */
+async function parseBody(request: Request): Promise<Record<string, unknown> | null> {
+  const raw = await request.clone().text();
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    // not JSON — fall through to form encoding
+  }
+  try {
+    const params = new URLSearchParams(raw);
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of params.entries()) out[k] = v;
+    return out;
+  } catch {
+    return null;
+  }
+}
+
+/** Read the gateway shared key from headers, Bearer auth or the body. */
+async function gatewayKeyFrom(request: Request): Promise<string> {
+  const header =
+    request.headers.get("x-gateway-key") ??
+    request.headers.get("x-gateway-secret") ??
+    "";
+  if (header) return header.trim();
+  const auth = request.headers.get("authorization") ?? "";
+  if (auth.startsWith("Bearer ")) return auth.slice(7).trim();
+  try {
+    const body = await parseBody(request);
+    const k = body?.["gateway_key"] ?? body?.["secret"] ?? body?.["key"];
+    return typeof k === "string" ? k.trim() : "";
+  } catch {
+    return "";
+  }
 }
 
 const TOKEN_RE = /^tk_[a-f0-9]{20,80}$/;
@@ -54,7 +102,14 @@ const sessionGet = httpAction(async (ctx, request) => {
     return json({ status: "invalid", message: "Invalid token" }, 400);
   }
 
-  const result = await ctx.runQuery(api.checkout.getCheckoutSession, { token });
+  // Best-effort site origin so the gateway's "return to site" lands on the
+  // app that created the checkout (SITE_URL env still wins in the query).
+  const siteOrigin =
+    siteOriginOf(request.headers.get("origin")) ||
+    siteOriginOf(request.headers.get("referer")) ||
+    "";
+
+  const result = await ctx.runQuery(api.checkout.getCheckoutSession, { token, siteOrigin });
   if (result.status === "invalid") return json(result, 404);
   if (result.status === "consumed") return json(result, 409);
   if (result.status === "expired") return json(result, 410);
@@ -74,8 +129,8 @@ const submitPost = httpAction(async (ctx, request) => {
   const json = (body: unknown, status = 200) =>
     new Response(JSON.stringify(body), { status, headers });
 
-  // Env secret wins; fall back to the admin-managed key pool (provider
-  // "gateway") so the seeded secret works out of the box.
+  // Secret resolution: env var → admin-managed key pool → whatever the
+  // gateway sent (header / Bearer / body field).
   let sharedKey = process.env["GATEWAY_SHARED_SECRET"] ?? "";
   if (!sharedKey) {
     sharedKey =
@@ -84,54 +139,27 @@ const submitPost = httpAction(async (ctx, request) => {
   if (!sharedKey) {
     return json({ status: "misconfigured", message: "Gateway secret not configured" }, 503);
   }
-  const provided =
-    request.headers.get("x-gateway-key") ?? request.headers.get("x-gateway-secret") ?? "";
+  const provided = await gatewayKeyFrom(request);
   if (!safeEqual(provided, sharedKey)) {
     return json({ status: "unauthorized", message: "Invalid gateway key" }, 401);
   }
 
-  let parsed:
-    | {
-        token: string;
-        method_name: string;
-        proof_url: string;
-        method_id?: string;
-        gateway_reference?: string;
-      }
-    | null = null;
-  try {
-    const body = (await request.json()) as Record<string, unknown>;
-    if (
-      typeof body.token === "string" &&
-      TOKEN_RE.test(body.token) &&
-      typeof body.method_name === "string" &&
-      body.method_name.trim().length > 0 &&
-      typeof body.proof_url === "string" &&
-      body.proof_url.length <= 500
-    ) {
-      parsed = {
-        token: body.token,
-        method_name: body.method_name.trim().slice(0, 60),
-        proof_url: body.proof_url,
-        method_id: typeof body.method_id === "string" ? body.method_id : undefined,
-        gateway_reference:
-          typeof body.gateway_reference === "string"
-            ? body.gateway_reference.trim().slice(0, 60)
-            : undefined,
-      };
-    }
-  } catch {
-    // invalid JSON → fall through to the 400 below
+  const body = await parseBody(request);
+  const str = (v: unknown) => (typeof v === "string" ? v : "");
+  const token = str(body?.["token"]);
+  const methodName = str(body?.["method_name"]).trim();
+  const proofUrl = str(body?.["proof_url"]);
+  if (!TOKEN_RE.test(token) || !methodName || proofUrl.length === 0 || proofUrl.length > 500) {
+    return json({ status: "invalid", message: "Invalid request body" }, 400);
   }
-  if (!parsed) return json({ status: "invalid", message: "Invalid request body" }, 400);
 
   try {
     const result = await ctx.runMutation(api.checkout.submitCheckout, {
-      token: parsed.token,
-      methodName: parsed.method_name,
-      proofUrl: parsed.proof_url,
-      methodId: parsed.method_id,
-      gatewayReference: parsed.gateway_reference,
+      token,
+      methodName: methodName.slice(0, 60),
+      proofUrl,
+      methodId: str(body?.["method_id"]).trim().slice(0, 80) || undefined,
+      gatewayReference: str(body?.["gateway_reference"]).trim().slice(0, 60) || undefined,
     });
     return json(result);
   } catch (e) {
@@ -143,9 +171,14 @@ const submitPost = httpAction(async (ctx, request) => {
   }
 });
 
-http.route({ path: "/checkout/session", method: "OPTIONS", handler: sessionOptions });
-http.route({ path: "/checkout/session", method: "GET", handler: sessionGet });
-http.route({ path: "/checkout/submit", method: "OPTIONS", handler: submitOptions });
-http.route({ path: "/checkout/submit", method: "POST", handler: submitPost });
+// Modern paths plus the original `/api/public/checkout/*` aliases, so the
+// gateway keeps working whether it is pointed at the new or the old-style
+// callback URL.
+for (const base of ["/checkout", "/api/public/checkout"]) {
+  http.route({ path: `${base}/session`, method: "OPTIONS", handler: sessionOptions });
+  http.route({ path: `${base}/session`, method: "GET", handler: sessionGet });
+  http.route({ path: `${base}/submit`, method: "OPTIONS", handler: submitOptions });
+  http.route({ path: `${base}/submit`, method: "POST", handler: submitPost });
+}
 
 export default http;

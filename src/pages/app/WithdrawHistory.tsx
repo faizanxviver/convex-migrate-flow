@@ -30,22 +30,35 @@ export default function WithdrawHistoryPage() {
 
       <div className="grid grid-cols-2 gap-3">
         <MoneyStat
-          label="Paid out"
+          label="Successful"
           value={money(paid.reduce((a, r) => a + r.amount, 0))}
           tone="success"
           count={paid.length}
           icon={<CheckCircle2 className="h-4 w-4" />}
         />
         <MoneyStat
-          label="Pending"
+          label="Processing"
           value={money(pending.reduce((a, r) => a + r.amount, 0))}
-          tone="gold"
+          tone="primary"
           count={pending.length}
           icon={<Loader2 className="h-4 w-4" />}
         />
       </div>
 
-      <TxList rows={rows} empty="No withdrawals yet." />
+      <TxList
+        rows={rows}
+        empty={
+          <div className="text-center">
+            <p className="mb-4 text-sm text-muted-foreground">No withdrawals yet.</p>
+            <Link
+              to="/dashboard/withdraw"
+              className="inline-flex h-11 items-center rounded-2xl gradient-brand px-6 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20"
+            >
+              Request a payout
+            </Link>
+          </div>
+        }
+      />
     </div>
   );
 }

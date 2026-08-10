@@ -1,4 +1,73 @@
-## Overview
+# HopeX — Investment Platform (Convex migration)
+
+This project is a full migration of the old HopeX app (originally a Lovable +
+Supabase project, see `faizanxviver/hopex`) onto this Freebuff stack: **Convex**
+replaces Supabase for the database, and **Convex Auth** (email OTP + anonymous)
+replaces Supabase Auth. Old user data was **not** migrated — every account starts
+fresh at Rs 0.
+
+## Migration map (Supabase → Convex)
+
+Every original table became a Convex table in `src/convex/schema.ts`:
+
+| Supabase table | Convex table | File |
+| --- | --- | --- |
+| `auth.users` / `user_roles` | `users` (role field) | `auth.ts`, `profiles.ts` |
+| `profiles` | `profiles` | `convex/profiles.ts` |
+| `plans` | `plans` | `convex/plans.ts` |
+| `investments` | `investments` | `convex/investments.ts` |
+| `transactions` | `transactions` | `convex/transactions.ts` |
+| `notifications` | `notifications` | `convex/notifications.ts` |
+| `chat_messages` | `chatMessages` | `convex/chat.ts` |
+| `promo_codes` | `promoCodes` | `convex/promoCodes.ts` |
+| `settings` | `settings` (singleton) | `convex/settings.ts`, `seed.ts` |
+| `payment_methods` | `paymentMethods` | `convex/admin.ts` |
+| `audit_log` | `auditLog` | `convex/helpers.ts` |
+| `reward_claims` | `rewardClaims` | `convex/rewards.ts` |
+| `leader_plans` | `leaderPlans` | `convex/leaderPlans.ts` |
+| `api_keys` | `apiKeys` | `convex/admin.ts` |
+| `withdrawal_proofs` | `withdrawalProofs` | `convex/proofs.ts` |
+| `checkout_sessions` | `checkoutSessions` | `schema.ts` (reserved for the external gateway plan) |
+
+SQL functions were ported 1:1 to Convex mutations, e.g.
+`buy_plan()` → `api.investments.buyPlan`, `claim_earnings()` →
+`api.investments.claimEarnings`, `claim_salary()` → `api.rewards.claimSalary`,
+`handle_new_user()` → `api.profiles.ensureProfile`, `submit_reward_claim()` →
+`api.rewards.submitRewardClaim`, `run_leader_plan_checks()` → the hourly cron in
+`convex/crons.ts`, and `redeem_promo()` → `api.promoCodes.redeemPromo`.
+
+## Key flows
+
+- **Sign up / sign in** — `/auth` (email OTP or guest). Profile + welcome
+  notification are created automatically on first load (`useHope` bootstrap).
+  Emails `admin@hopex.io` / `admin@aurum.io` are auto-promoted to admin.
+- **Deposit** — user picks a payment method, pays, uploads a screenshot; an
+  admin approves it in the admin panel to credit the balance.
+- **Invest** — `buyPlan` deducts the balance, credits day-1 income instantly and
+  pays 4-level referral commissions (`settings.levels`).
+- **Withdraw** — only during the configured PKT window, with a bound payout
+  account and an active plan; funds are held until admin approval.
+- **Rewards** — free reward task (WhatsApp + Facebook proofs) and weekly rank
+  salary, both admin-reviewed with cooldowns.
+- **Admin panel** — `/dashboard/admin`: overview, users, transactions, plans &
+  promos, support chat, rewards/proofs, leader plans, site settings, payment
+  methods, API keys, audit log.
+
+## Pages
+
+- Public: `/` landing, `/auth`, 404.
+- App (protected by `RequireAuth` under `/dashboard`): dashboard, plans,
+  deposit, deposit-history, withdraw, withdraw-history, transactions,
+  investments, leaderboard, referrals, promo, salary, rewards, more, profile,
+  admin.
+
+Shared data comes from `src/hooks/use-hope.ts` (user-facing) and
+`src/hooks/use-admin.ts` (admin); money/format helpers live in `src/lib/hopex.ts`.
+Image proofs use Convex file storage (`generateUploadUrl` + `StorageImage`).
+
+---
+
+## Template overview
 
 This project uses the following tech stack:
 - Vite

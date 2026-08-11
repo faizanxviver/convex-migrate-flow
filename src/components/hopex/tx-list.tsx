@@ -1,91 +1,117 @@
-import { Transaction, fmtDateTime, money, statusLabel, txTypeLabel } from "@/lib/hopex";
+import { fmtDateTime, money, type Transaction } from "@/lib/hopex";
 import { cn } from "@/lib/utils";
 import {
   ArrowDownLeft,
   ArrowUpRight,
+  Gem,
   Gift,
   HandCoins,
-  Percent,
-  TrendingUp,
+  Image as ImageIcon,
+  Loader2,
+  UsersRound,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { StatusBadge } from "./glass";
 
-const TYPE_META: Record<string, { icon: typeof Gift; tone: string }> = {
-  deposit: { icon: ArrowDownLeft, tone: "bg-success/15 text-success" },
-  withdraw: { icon: ArrowUpRight, tone: "bg-gold/20 text-gold" },
-  investment: { icon: TrendingUp, tone: "bg-primary/15 text-primary" },
-  commission: { icon: Percent, tone: "bg-primary/15 text-primary" },
-  bonus: { icon: Gift, tone: "bg-gold/20 text-gold" },
-  payout: { icon: HandCoins, tone: "bg-success/15 text-success" },
-};
+const ICONS = {
+  deposit: ArrowDownLeft,
+  withdraw: ArrowUpRight,
+  investment: Gem,
+  commission: UsersRound,
+  bonus: Gift,
+  payout: HandCoins,
+} as const;
 
-export function TxList({
-  rows,
-  empty,
-}: {
-  rows: Transaction[];
-  empty?: ReactNode;
-}) {
-  if (rows.length === 0) {
-    return (
-      <div className="rounded-3xl glass p-8 text-center text-sm text-muted-foreground">
-        {empty ?? "No transactions yet."}
-      </div>
-    );
-  }
+const TINT = {
+  deposit: "bg-success/15 text-success",
+  withdraw: "bg-destructive/15 text-destructive",
+  investment: "bg-primary/15 text-primary",
+  commission: "bg-gold/20 text-gold",
+  bonus: "bg-gold/20 text-gold",
+  payout: "bg-success/15 text-success",
+} as const;
 
+const isMpay = (t: Transaction) =>
+  t.type === "deposit" && /mpay|auto gateway/i.test(`${t.note ?? ""} ${t.method ?? ""}`);
+const isWaiting = (t: Transaction) => t.status === "pending" || t.status === "processing";
+
+const isDebit = (t: Transaction) => t.type === "withdraw" || t.type === "investment";
+
+export function TxRow({ tx }: { tx: Transaction }) {
+  const Icon = ICONS[tx.type] ?? HandCoins;
+  const waiting = isWaiting(tx);
   return (
-    <div className="divide-y divide-border/40 rounded-3xl glass p-2">
-      {rows.map((tx) => {
-        const meta = TYPE_META[tx.type] ?? TYPE_META.bonus;
-        const Icon = meta.icon;
-        const incoming =
-          tx.type === "deposit" ||
-          tx.type === "commission" ||
-          tx.type === "bonus" ||
-          tx.type === "payout";
-        return (
-          <div key={tx._id} className="flex items-center gap-3 p-3">
-            <span className={cn("grid h-10 w-10 shrink-0 place-items-center rounded-2xl", meta.tone)}>
-              <Icon className="h-4.5 w-4.5" />
+    <div className="group relative overflow-hidden rounded-2xl glass p-3.5 transition-all duration-300 hover:-translate-y-0.5">
+      <span
+        className={cn(
+          "pointer-events-none absolute inset-y-0 left-0 w-1",
+          isDebit(tx) ? "bg-destructive/50" : "bg-success/50",
+        )}
+      />
+      <div className="flex items-center gap-3 pl-1.5">
+        <span className={cn("relative grid h-11 w-11 shrink-0 place-items-center rounded-2xl", TINT[tx.type])}>
+          <Icon className="h-5 w-5" />
+          {waiting ? (
+            <span className="absolute -right-0.5 -top-0.5 grid h-4 w-4 place-items-center rounded-full bg-background">
+              <Loader2 className="h-3 w-3 animate-spin text-primary" />
             </span>
-            <span className="min-w-0 flex-1">
-              <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                <span className="truncate text-sm font-semibold">
-                  {txTypeLabel(tx.type)}
-                  {tx.method ? ` · ${tx.method}` : ""}
-                </span>
-                <StatusBadge status={tx.status} />
-              </span>
-              <span className="block truncate text-[11px] text-muted-foreground">
-                {fmtDateTime(tx.createdAt)}
-                {tx.reference ? ` · ${tx.reference}` : ""}
-              </span>
-              {tx.proofUrl ? (
-                <span className="mt-1.5 block">
-                  <img
-                    src={tx.proofUrl}
-                    alt="proof"
-                    className="h-16 w-16 rounded-xl object-cover ring-1 ring-border"
-                  />
-                </span>
-              ) : null}
-            </span>
-            <span
+          ) : null}
+        </span>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <p className="truncate text-sm font-black capitalize">{tx.method || tx.type}</p>
+            <p
               className={cn(
-                "shrink-0 font-display text-sm font-extrabold",
-                incoming ? "text-success" : "text-foreground",
+                "shrink-0 font-display text-base font-black tabular-nums",
+                isDebit(tx) ? "text-destructive" : "text-success",
               )}
             >
-              {incoming ? "+" : "−"}
+              {isDebit(tx) ? "−" : "+"}
               {money(tx.amount)}
-            </span>
+            </p>
           </div>
-        );
-      })}
+          <p className="truncate text-[11px] text-muted-foreground">{fmtDateTime(tx.createdAt)}</p>
+
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <StatusBadge status={tx.status} />
+            {isMpay(tx) ? (
+              <span className="inline-flex items-center rounded-full bg-success/15 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-success">
+                MPay
+              </span>
+            ) : null}
+            {tx.proofUrl ? (
+              <a
+                href={tx.proofUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[10px] font-bold text-muted-foreground"
+              >
+                <ImageIcon className="h-3 w-3" /> proof
+              </a>
+            ) : null}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-export { statusLabel };
+export function TxList({ rows, empty }: { rows: Transaction[]; empty?: ReactNode }) {
+  if (!rows.length) {
+    return (
+      <div className="glass rounded-[1.75rem] p-10 text-center text-sm text-muted-foreground">
+        {empty ?? "No transactions yet."}
+      </div>
+    );
+  }
+  return (
+    <div className="grid gap-2.5">
+      {rows.map((t) => (
+        <TxRow key={t._id} tx={t} />
+      ))}
+    </div>
+  );
+}
+
+export { statusLabel } from "@/lib/hopex";

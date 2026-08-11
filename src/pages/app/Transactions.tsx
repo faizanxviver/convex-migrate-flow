@@ -68,7 +68,7 @@ export default function TransactionsPage() {
         <MoneyStat
           label="Total Outflow"
           value={`−${money(outflow)}`}
-          tone="primary"
+          tone="destructive"
           count={debits.length}
           icon={<ArrowUpRight className="h-4 w-4" />}
           hint="Debited"

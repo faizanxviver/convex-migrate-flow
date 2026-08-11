@@ -33,8 +33,11 @@ export default function DepositPage() {
     setConnecting(true);
     // Open a blank tab synchronously inside the click gesture so popup
     // blockers never redirect us to the same tab. We only point it at MPay
-    // once the backend session is ready.
-    const tab = window.open("", "_blank", "noopener,noreferrer");
+    // once the backend session is ready. IMPORTANT: do NOT pass "noopener"
+    // here — with noopener, window.open() returns null and we lose the
+    // reference, so the tab stays blank forever. We detach the opener
+    // ourselves right before navigating instead.
+    const tab = window.open("", "_blank");
     try {
       // Tell the backend where the user actually is, so the gateway's
       // "return to site" link points at this website (never at a Convex API
@@ -45,6 +48,9 @@ export default function DepositPage() {
       setConnecting(false);
       setBusy(false);
       if (tab && !tab.closed) {
+        // Detach the new tab from this window (same effect as noopener) so
+        // the gateway can't reach back into the app, then send it to MPay.
+        tab.opener = null;
         tab.location.href = session.url;
       } else {
         // No tab (blocked) — never navigate the current page away; give the

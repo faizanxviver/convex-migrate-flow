@@ -115,6 +115,19 @@ export function AdminChat() {
   const active = threads.find((t) => t.userId === activeId) ?? null;
   const messages = active?.messages ?? [];
   const person = users.find((u) => u.userId === activeId) ?? null;
+
+  /* Group consecutive messages from the same sender (within 5 min) the way
+     WhatsApp does — tight spacing, and the tail + time only on the last one. */
+  const rows = useMemo(() => {
+    return messages.map((m, i) => {
+      const prev = messages[i - 1];
+      const next = messages[i + 1];
+      const gap = 5 * 60000;
+      const samePrev = !!prev && prev.sender === m.sender && m.createdAt - prev.createdAt < gap;
+      const sameNext = !!next && next.sender === m.sender && next.createdAt - m.createdAt < gap;
+      return { m, first: !samePrev, last: !sameNext };
+    });
+  }, [messages]);
   const totalUnread = threads.reduce((a, t) => a + t.unread, 0);
 
   const contacts = useMemo(
@@ -280,10 +293,12 @@ export function AdminChat() {
               onClick={() => setSelected(t.userId)}
               className={cn(
                 "flex w-full items-center gap-3 px-3 py-2.5 text-left transition",
-                activeId === t.userId ? "bg-black/5" : "hover:bg-black/[0.03]",
+                activeId === t.userId
+                  ? "bg-black/5 dark:bg-white/10"
+                  : "hover:bg-black/[0.03] dark:hover:bg-white/5",
               )}
             >
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--wa-teal-2)] text-xs font-black text-white">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[var(--wa-teal-2)] to-[var(--wa-teal)] text-xs font-black text-white ring-1 ring-white/10">
                 {initials(t.name)}
               </span>
               <span className="min-w-0 flex-1 border-b border-black/5 pb-2">
@@ -326,19 +341,36 @@ export function AdminChat() {
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/20 text-xs font-black">
+          <span className="relative grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/25 text-xs font-black ring-2 ring-white/40">
             {person ? initials(person.name) : "?"}
+            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[var(--wa-teal)] bg-[var(--wa-green)]" />
           </span>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">{person?.name ?? "Select a chat"}</p>
-            <p className="truncate text-[11px] opacity-80">
+            <p className="flex items-center gap-1 truncate text-sm font-semibold">
+              {person?.name ?? "Select a chat"}
+              {person ? (
+                <BadgeCheck className="h-4 w-4 shrink-0 text-[var(--wa-green)]" />
+              ) : null}
+            </p>
+            <p className="flex items-center gap-1.5 truncate text-[11px] opacity-85">
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--wa-green)]",
+                  peerTyping && "animate-pulse",
+                )}
+              />
               {peerTyping
                 ? "typing…"
                 : person
-                  ? `${person.phone ?? person.email ?? "no contact"} · ${money(person.balance)}`
+                  ? `${person.phone ?? person.email ?? "no contact"}`
                   : "—"}
             </p>
           </div>
+          {person ? (
+            <span className="hidden shrink-0 rounded-full bg-white/15 px-2.5 py-1 text-[11px] font-bold tabular-nums sm:block">
+              {money(person.balance)}
+            </span>
+          ) : null}
           <button
             onClick={() => setShowInfo((s) => !s)}
             aria-label="User details"
@@ -369,7 +401,7 @@ export function AdminChat() {
           }}
           className="wa-wall flex-1 space-y-1.5 overflow-y-auto px-3 py-4"
         >
-          {messages.map((m) => {
+          {rows.map(({ m, first, last }) => {
             const label = dayLabel(m.createdAt);
             const showDay = label !== lastDay;
             lastDay = label;
@@ -381,13 +413,29 @@ export function AdminChat() {
                     {label}
                   </p>
                 ) : null}
-                <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
+                <div
+                  className={cn(
+                    "flex animate-msg items-end gap-1",
+                    mine ? "justify-end" : "justify-start",
+                    first ? "mt-3" : "mt-[3px]",
+                  )}
+                >
+                  {!mine ? (
+                    last ? (
+                      <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/70 text-[10px] font-black text-[var(--wa-teal-2)] shadow-sm">
+                        {initials(person?.name ?? "?")}
+                      </span>
+                    ) : (
+                      <span className="w-6 shrink-0" />
+                    )
+                  ) : null}
                   <div
                     onClick={() => void copyMsg(m)}
                     title={m.text && m.text !== m.attachment?.name ? "Click to copy" : undefined}
                     className={cn(
                       "wa-bubble",
                       mine ? "wa-out wa-bubble-out" : "wa-in wa-bubble-in",
+                      last && "wa-tail",
                       m.text && m.text !== m.attachment?.name && "cursor-pointer",
                     )}
                   >
@@ -409,10 +457,12 @@ export function AdminChat() {
                     {m.text && m.text !== m.attachment?.name ? (
                       <span className="whitespace-pre-wrap font-semibold">{m.text}</span>
                     ) : null}
-                    <span className="wa-meta">
-                      {timeOf(m.createdAt)}
-                      {mine ? <Ticks status={m.status} /> : null}
-                    </span>
+                    {last ? (
+                      <span className="wa-meta">
+                        {timeOf(m.createdAt)}
+                        {mine ? <Ticks status={m.status} /> : null}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
               </div>
@@ -443,9 +493,9 @@ export function AdminChat() {
           <button
             onClick={() => endRef.current?.scrollIntoView({ behavior: "smooth" })}
             aria-label="Scroll to latest"
-            className="absolute bottom-24 right-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-[var(--wa-in)] shadow-md"
+            className="absolute bottom-24 right-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-[var(--wa-teal-2)] to-[var(--wa-teal)] text-white shadow-lg"
           >
-            <ChevronDown className="h-4 w-4 wa-dim" />
+            <ChevronDown className="h-4 w-4" />
           </button>
         ) : null}
 
@@ -485,7 +535,7 @@ export function AdminChat() {
           >
             <Zap className="h-4 w-4" />
           </button>
-          <div className="flex min-w-0 flex-1 items-end gap-1 rounded-3xl bg-[var(--wa-in)] px-3 py-1.5">
+          <div className="flex min-w-0 flex-1 items-end gap-1 rounded-[1.4rem] bg-[var(--wa-in)] px-2.5 py-1.5 shadow-sm ring-1 ring-black/5">
             <button
               onClick={() => setEmoji((e) => !e)}
               aria-label="Emoji"
@@ -548,7 +598,7 @@ export function AdminChat() {
             }}
             disabled={uploading}
             aria-label={recording ? "Send voice message" : "Send"}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--wa-teal-2)] text-white disabled:opacity-60"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[var(--wa-teal-2)] to-[var(--wa-teal)] text-white shadow-[0_4px_12px_-4px_rgba(18,140,126,0.55)] disabled:opacity-60"
           >
             {recording || text.trim() ? <Send className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           </button>

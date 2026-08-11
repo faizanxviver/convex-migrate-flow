@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useMutation } from "convex/react";
 import {
   ArrowLeft,
+  BadgeCheck,
   Camera,
   Check,
   CheckCheck,
@@ -52,7 +53,7 @@ function dayLabel(ts: number) {
   return d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" }).toUpperCase();
 }
 
-/** WhatsApp-style user support chat, exactly like the original Hopex. */
+/** WhatsApp-style user support chat — redesigned with grouped bubbles, tails and a richer header. */
 export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { chat, profile } = useHope();
   const send = useMutation(api.chat.sendUserMessage);
@@ -78,10 +79,25 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
   const cameraRef = useRef<HTMLInputElement>(null);
   const atBottomRef = useRef(true);
 
-  const messages = query.trim()
+  const filtered = query.trim()
     ? chat.filter((m) => m.text.toLowerCase().includes(query.trim().toLowerCase()))
     : chat;
   const agentOnline = true;
+  const searchingActive = query.trim().length > 0;
+
+  /* Group consecutive messages from the same sender (within 5 min) the way
+     WhatsApp does — tight spacing, and the tail + time only on the last one. */
+  const rows = useMemo(() => {
+    const grouped = !searchingActive;
+    return filtered.map((m, i) => {
+      const prev = filtered[i - 1];
+      const next = filtered[i + 1];
+      const gap = 5 * 60000;
+      const samePrev = grouped && !!prev && prev.sender === m.sender && m.createdAt - prev.createdAt < gap;
+      const sameNext = grouped && !!next && next.sender === m.sender && next.createdAt - m.createdAt < gap;
+      return { m, first: !samePrev, last: !sameNext };
+    });
+  }, [filtered, searchingActive]);
 
   useEffect(() => {
     atBottomRef.current = atBottom;
@@ -93,7 +109,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
     if (open && (atBottomRef.current || chat.length === 0)) {
       endRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages.length, open, chat.length]);
+  }, [rows.length, open, chat.length]);
 
   const { peerTyping, notifyTyping } = useTyping(profile?.userId ?? null, "user");
 
@@ -177,18 +193,28 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
     <div className="fixed inset-0 z-[80] flex items-end justify-end sm:p-4">
       <div className="absolute inset-0 bg-background/60 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="wa animate-rise relative flex h-full w-full flex-col overflow-hidden shadow-[var(--shadow-elegant)] sm:h-[min(42rem,92vh)] sm:w-[24.5rem] sm:rounded-2xl">
+      <div className="wa animate-rise relative flex h-full w-full flex-col overflow-hidden shadow-[var(--shadow-elegant)] ring-1 ring-black/10 sm:h-[min(42rem,92vh)] sm:w-[26rem] sm:rounded-2xl">
         {/* ---------- Header ---------- */}
         <div className="wa-header flex items-center gap-3 px-3 py-2.5">
           <button onClick={onClose} aria-label="Back" className="shrink-0">
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/20 font-display text-sm font-black">
+          <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/25 font-display text-sm font-black ring-2 ring-white/40">
             H
+            <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[var(--wa-teal)] bg-[var(--wa-green)]" />
           </span>
           <div className="min-w-0 flex-1 leading-tight">
-            <p className="truncate text-[15px] font-semibold">HopeX Support</p>
-            <p className="truncate text-[11px] opacity-80">
+            <p className="flex items-center gap-1 truncate text-[15px] font-semibold">
+              HopeX Support
+              <BadgeCheck className="h-4 w-4 shrink-0 text-[var(--wa-green)]" />
+            </p>
+            <p className="flex items-center gap-1.5 truncate text-[11px] opacity-85">
+              <span
+                className={cn(
+                  "h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--wa-green)]",
+                  peerTyping && "animate-pulse",
+                )}
+              />
               {peerTyping ? "typing…" : agentOnline ? "online" : "typically replies in minutes"}
             </p>
           </div>
@@ -197,7 +223,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
               <MoreVertical className="h-[18px] w-[18px]" />
             </button>
             {menu ? (
-              <div className="absolute right-0 top-7 z-20 w-44 overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-xl">
+              <div className="absolute right-0 top-8 z-20 w-44 overflow-hidden rounded-lg bg-popover text-popover-foreground shadow-xl ring-1 ring-black/10">
                 <button
                   onClick={() => {
                     setMenu(false);
@@ -257,16 +283,17 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
             const el = e.currentTarget;
             setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80);
           }}
-          className="wa-wall relative flex-1 space-y-1.5 overflow-y-auto px-3 py-4"
+          className="wa-wall relative flex-1 overflow-y-auto px-3 py-4"
         >
-          <p className="wa-divider mx-auto w-fit rounded-md px-3 py-1 text-center text-[11px]">
+          <p className="wa-divider mx-auto mb-3 w-fit rounded-md px-3 py-1 text-center text-[11px]">
             🔒 Messages are private between you and support
           </p>
 
           {chat.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
-              <span className="grid h-16 w-16 place-items-center rounded-full bg-[var(--wa-green)]/15 text-[var(--wa-green)]">
-                <MessageCircle className="h-7 w-7" />
+            <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
+              <span className="relative grid h-16 w-16 place-items-center rounded-full bg-[var(--wa-green)]/15 text-[var(--wa-green)]">
+                <span className="absolute inset-0 animate-ping rounded-full bg-[var(--wa-green)]/20" />
+                <MessageCircle className="relative h-7 w-7" />
               </span>
               <p className="text-sm font-semibold">Hello! 👋 How can we help?</p>
               <p className="max-w-[15rem] text-xs wa-dim">
@@ -276,7 +303,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
             </div>
           ) : null}
 
-          {messages.map((m) => {
+          {rows.map(({ m, first, last }) => {
             const label = dayLabel(m.createdAt);
             const showDay = label !== lastDay;
             lastDay = label;
@@ -288,22 +315,35 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
                     {label}
                   </p>
                 ) : null}
-                <div className={cn("group flex items-end gap-1", mine ? "justify-end" : "justify-start")}>
+                <div
+                  className={cn(
+                    "group flex animate-msg items-end gap-1",
+                    mine ? "justify-end" : "justify-start",
+                    first ? "mt-3" : "mt-[3px]",
+                  )}
+                >
                   {mine ? (
                     <button
                       onClick={() => setReplyTo({ from: m.sender, text: m.text })}
                       aria-label="Reply"
-                      className="opacity-0 transition group-hover:opacity-100"
+                      className="mb-1 opacity-0 transition group-hover:opacity-100"
                     >
                       <Reply className="h-3.5 w-3.5 wa-dim" />
                     </button>
-                  ) : null}
+                  ) : last ? (
+                    <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/70 text-[10px] font-black text-[var(--wa-teal-2)] shadow-sm">
+                      H
+                    </span>
+                  ) : (
+                    <span className="w-6 shrink-0" />
+                  )}
                   <div
                     onClick={() => void copyMsg(m)}
                     title={m.text ? "Click to copy" : undefined}
                     className={cn(
                       "wa-bubble",
                       mine ? "wa-out wa-bubble-out" : "wa-in wa-bubble-in",
+                      last && "wa-tail",
                       m.text && "cursor-pointer",
                     )}
                   >
@@ -321,24 +361,26 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
                     {m.text ? (
                       <span className="whitespace-pre-wrap font-semibold">{m.text}</span>
                     ) : null}
-                    <span className="wa-meta">
-                      {fmtTime(m.createdAt)}
-                      {mine ? (
-                        m.status === "read" ? (
-                          <CheckCheck className="h-[15px] w-[15px] text-[var(--wa-tick)]" />
-                        ) : m.status === "delivered" ? (
-                          <CheckCheck className="h-[15px] w-[15px]" />
-                        ) : (
-                          <Check className="h-[15px] w-[15px]" />
-                        )
-                      ) : null}
-                    </span>
+                    {last ? (
+                      <span className="wa-meta">
+                        {fmtTime(m.createdAt)}
+                        {mine ? (
+                          m.status === "read" ? (
+                            <CheckCheck className="h-[15px] w-[15px] text-[var(--wa-tick)]" />
+                          ) : m.status === "delivered" ? (
+                            <CheckCheck className="h-[15px] w-[15px]" />
+                          ) : (
+                            <Check className="h-[15px] w-[15px]" />
+                          )
+                        ) : null}
+                      </span>
+                    ) : null}
                   </div>
                   {!mine ? (
                     <button
                       onClick={() => setReplyTo({ from: m.sender, text: m.text })}
                       aria-label="Reply"
-                      className="opacity-0 transition group-hover:opacity-100"
+                      className="mb-1 opacity-0 transition group-hover:opacity-100"
                     >
                       <Reply className="h-3.5 w-3.5 wa-dim" />
                     </button>
@@ -349,8 +391,8 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
           })}
 
           {peerTyping ? (
-            <div className="flex justify-start">
-              <div className="wa-bubble wa-in wa-bubble-in flex items-center gap-1 py-2.5">
+            <div className="mt-3 flex justify-start">
+              <div className="wa-bubble wa-in wa-bubble-in wa-tail flex animate-msg items-center gap-1 py-2.5">
                 {[0, 1, 2].map((i) => (
                   <span
                     key={i}
@@ -362,9 +404,9 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
             </div>
           ) : null}
           {uploading ? (
-            <div className="flex justify-end">
-              <div className="wa-bubble wa-out wa-bubble-out text-xs opacity-70">
-                Uploading image… {busy ? "" : ""}
+            <div className="mt-3 flex justify-end">
+              <div className="wa-bubble wa-out wa-bubble-out wa-tail flex items-center gap-2 text-xs opacity-70">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading image…
               </div>
             </div>
           ) : null}
@@ -375,9 +417,9 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
           <button
             onClick={() => endRef.current?.scrollIntoView({ behavior: "smooth" })}
             aria-label="Scroll to latest"
-            className="absolute bottom-24 right-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-[var(--wa-in)] shadow-md"
+            className="absolute bottom-24 right-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-[var(--wa-teal-2)] to-[var(--wa-teal)] text-white shadow-lg"
           >
-            <ChevronDown className="h-4 w-4 wa-dim" />
+            <ChevronDown className="h-4 w-4" />
           </button>
         ) : null}
 
@@ -388,7 +430,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
               <button
                 key={q}
                 onClick={() => void doSend(q)}
-                className="shrink-0 rounded-full border border-[var(--wa-green)]/50 bg-[var(--wa-green)]/10 px-3 py-1 text-xs font-medium text-[var(--wa-teal-2)]"
+                className="shrink-0 rounded-full bg-[var(--wa-teal-2)]/10 px-3 py-1.5 text-xs font-medium text-[var(--wa-teal-2)] ring-1 ring-[var(--wa-teal-2)]/30"
               >
                 {q}
               </button>
@@ -413,7 +455,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
 
         {/* ---------- Attachment sheet ---------- */}
         {attach ? (
-          <div className="wa-panel grid grid-cols-2 gap-2 px-4 py-3">
+          <div className="wa-panel flex items-end gap-5 px-4 py-3">
             {[
               { label: "Gallery", icon: ImageIcon, tone: "#bf59cf", ref: fileRef },
               { label: "Camera", icon: Camera, tone: "#d3396d", ref: cameraRef },
@@ -424,7 +466,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
                 className="flex flex-col items-center gap-1.5 text-[11px] wa-dim"
               >
                 <span
-                  className="grid h-12 w-12 place-items-center rounded-full text-white"
+                  className="grid h-12 w-12 place-items-center rounded-full text-white shadow-md"
                   style={{ background: a.tone }}
                 >
                   <a.icon className="h-5 w-5" />
@@ -461,7 +503,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
               onClick={() => void confirmSendImage()}
               disabled={uploading}
               aria-label="Send image"
-              className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--wa-teal-2)] text-white disabled:opacity-60"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[var(--wa-teal-2)] to-[var(--wa-teal)] text-white disabled:opacity-60"
             >
               {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </button>
@@ -484,9 +526,9 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
         ) : null}
 
         {/* ---------- Composer ---------- */}
-        <div className="wa-panel flex items-end gap-2 p-2">
+        <div className="wa-panel flex items-end gap-2 p-2 pb-3">
           {recording ? (
-            <div className="flex min-w-0 flex-1 items-center gap-3 rounded-3xl bg-[var(--wa-in)] px-4 py-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3 rounded-3xl bg-[var(--wa-in)] px-4 py-3 shadow-sm ring-1 ring-black/5">
               <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-destructive" />
               <span className="text-sm font-semibold tabular-nums">{formatDuration(seconds)}</span>
               <span className="truncate text-xs wa-dim">Recording… tap to send</span>
@@ -495,7 +537,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
               </button>
             </div>
           ) : (
-            <div className="flex min-w-0 flex-1 items-end gap-1 rounded-3xl bg-[var(--wa-in)] px-3 py-1.5">
+            <div className="flex min-w-0 flex-1 items-end gap-1 rounded-[1.4rem] bg-[var(--wa-in)] px-2.5 py-1.5 shadow-sm ring-1 ring-black/5">
               <button
                 onClick={() => {
                   setEmoji((e) => !e);
@@ -577,7 +619,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
             aria-label={
               recording ? "Send voice message" : text.trim() ? "Send message" : "Record voice message"
             }
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--wa-teal-2)] text-white disabled:opacity-60"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[var(--wa-teal-2)] to-[var(--wa-teal)] text-white shadow-[0_4px_12px_-4px_rgba(18,140,126,0.55)] disabled:opacity-60"
           >
             {recording || text.trim() ? <Send className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           </button>

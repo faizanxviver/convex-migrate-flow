@@ -370,7 +370,7 @@
   --wa-wall: #0b141a;
 }
 .wa-header {
-  background: var(--wa-teal);
+  background: linear-gradient(135deg, var(--wa-teal) 0%, var(--wa-teal-2) 100%);
   color: #ffffff;
 }
 .dark .wa-header {
@@ -414,11 +414,47 @@
   line-height: 1.3rem;
   word-break: break-word;
 }
-.wa-bubble-out {
+.wa-bubble-out.wa-tail {
   border-top-right-radius: 0;
 }
-.wa-bubble-in {
+.wa-bubble-in.wa-tail {
   border-top-left-radius: 0;
+}
+.wa-bubble-out.wa-tail::before,
+.wa-bubble-in.wa-tail::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  width: 7px;
+  height: 12px;
+}
+.wa-bubble-out.wa-tail::before {
+  right: -7px;
+  background: var(--wa-out);
+  clip-path: polygon(0 0, 100% 100%, 0 100%);
+}
+.wa-bubble-in.wa-tail::before {
+  left: -7px;
+  background: var(--wa-in);
+  clip-path: polygon(100% 0, 0 100%, 100% 100%);
+}
+@keyframes wa-pop {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.animate-msg {
+  animation: wa-pop 0.18s ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-msg {
+    animation: none;
+  }
 }
 .wa-meta {
   float: right;

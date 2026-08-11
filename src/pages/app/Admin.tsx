@@ -1350,9 +1350,18 @@ function MethodsManager() {
           <GlassCard key={m._id} className="space-y-3">
             <div className="flex items-center gap-3">
               {m.imageUrl ? (
-                <img src={m.imageUrl} alt={m.name} className="h-12 w-12 rounded-xl object-cover" />
+                <div className="group relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl ring-1 ring-border">
+                  <img src={m.imageUrl} alt={m.name} className="h-full w-full object-cover" />
+                  <button
+                    onClick={() => void patch(m._id, "imageUrl", undefined)}
+                    aria-label="Remove logo"
+                    className="absolute inset-0 grid place-items-center bg-background/70 text-destructive opacity-0 transition group-hover:opacity-100"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
               ) : (
-                <span className="grid h-12 w-12 place-items-center rounded-xl gradient-cool text-sm font-black text-primary-foreground">
+                <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl gradient-cool text-lg font-black text-primary-foreground">
                   {m.name[0]}
                 </span>
               )}
@@ -1389,7 +1398,7 @@ function MethodsManager() {
 
             <div className="flex flex-wrap items-center gap-2">
               <label className="cursor-pointer rounded-lg glass-soft px-3 py-2 text-xs font-semibold">
-                {busy === m._id ? "Uploading…" : "Upload logo"}
+                {busy === m._id ? "Uploading…" : m.imageUrl ? "Replace logo" : "Upload logo"}
                 <input
                   type="file"
                   accept="image/*"

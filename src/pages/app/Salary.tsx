@@ -10,10 +10,12 @@ import {
   Crown,
   HandCoins,
   Lock,
+  Sparkles,
   Target,
+  TrendingUp,
   UsersRound,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Fragment } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
@@ -42,6 +44,9 @@ export default function SalaryPage() {
 
   const directTeam = network?.levels[0] ?? [];
   const s = salaryStatus(profile, transactions, directTeam, settings?.salaryTiers ?? [], tick);
+  const WEEK = 7 * 86400000;
+  const elapsed = s.lastClaimAt ? Math.min(WEEK, Math.max(0, tick - s.lastClaimAt)) : WEEK;
+  const cyclePct = s.claimable ? 100 : Math.round((elapsed / WEEK) * 100);
 
   const claim = async () => {
     setBusy(true);
@@ -49,11 +54,13 @@ export default function SalaryPage() {
       const amount = await claimSalary();
       toast.success(`Salary credited — ${money(amount)}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not claim salary");
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\\s*/, "") : "Could not claim salary");
     } finally {
       setBusy(false);
     }
   };
+
+  const rankIndex = s.current ? s.tiers.findIndex((t) => t.rank === s.current?.rank) : -1;
 
   return (
     <div className="space-y-5 pb-20">
@@ -62,96 +69,206 @@ export default function SalaryPage() {
         subtitle="Your rank depends only on the total investment of your level 1 team. Claim every 7 days."
       />
 
-      {/* Hero */}
+      {/* ---------- Hero ---------- */}
       <GlassCard glow className="relative overflow-hidden p-5 sm:p-7">
         <div className="pointer-events-none absolute -right-20 -top-20 h-56 w-56 rounded-full bg-gold/25 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -left-16 h-52 w-52 rounded-full bg-primary/20 blur-3xl" />
         <div className="relative">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/20 px-3 py-1 text-[11px] font-bold text-gold">
-            <Crown className="h-3 w-3" /> {s.current ? s.current.rank : "Unranked"}
-          </span>
-          <p className="mt-3 font-display text-4xl font-black tracking-tight sm:text-5xl">
-            {money(s.current?.salary ?? 0)}
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground">Your weekly salary</p>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-gold/20 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-gold">
+              <Crown className="h-3.5 w-3.5" /> {s.current ? s.current.rank : "Unranked"}
+            </span>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-[11px] font-bold text-primary">
+              <CalendarClock className="h-3.5 w-3.5" />
+              {s.claimable ? "Ready to claim" : `Next claim in ${countdown(s.nextClaimIn)}`}
+            </span>
+          </div>
 
-          <div className="mt-5 grid grid-cols-2 gap-2.5">
-            <div className="rounded-2xl glass-soft px-3.5 py-3">
-              <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-                <Target className="h-3 w-3" /> Level 1 investment
-              </p>
-              <p className="mt-0.5 truncate font-display text-lg font-extrabold">{money(s.invested)}</p>
+          <div className="mt-4 flex flex-wrap items-end gap-x-4 gap-y-1">
+            <p className="font-display text-5xl font-black tracking-tight sm:text-6xl">
+              {money(s.current?.salary ?? 0)}
+            </p>
+            <p className="pb-1.5 text-sm font-semibold text-muted-foreground">your weekly salary</p>
+          </div>
+
+          {/* Cycle progress */}
+          <div className="mt-6">
+            <div className="flex items-center justify-between text-xs">
+              <span className="font-semibold text-muted-foreground">Salary cycle</span>
+              <span className="font-black tabular-nums">{cyclePct}%</span>
             </div>
-            <div className="rounded-2xl glass-soft px-3.5 py-3">
-              <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-                <UsersRound className="h-3 w-3" /> Direct team
-              </p>
-              <p className="mt-0.5 font-display text-lg font-extrabold">{s.team}</p>
+            <div className="mt-1.5 h-2.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-700",
+                  s.claimable ? "gradient-brand" : "bg-gold/60",
+                )}
+                style={{ width: `${cyclePct}%` }}
+              />
             </div>
           </div>
 
           <button
             onClick={() => void claim()}
             disabled={!s.claimable || busy}
-            className="btn-glass btn-glass-primary mt-4 flex h-14 w-full items-center justify-center gap-2 text-base font-bold disabled:opacity-50"
+            className="btn-glass btn-glass-primary mt-5 flex h-14 w-full items-center justify-center gap-2 text-base font-black disabled:opacity-50"
           >
             <HandCoins className="h-5 w-5" />
             {s.claimable
-              ? "Claim salary"
+              ? busy
+                ? "Claiming…"
+                : "Claim salary"
               : s.current
                 ? `Next claim in ${countdown(s.nextClaimIn)}`
                 : "Reach a rank to claim"}
           </button>
 
           {s.lastClaimAt ? (
-            <p className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-              <CalendarClock className="h-3 w-3" /> Last claim {new Date(s.lastClaimAt).toLocaleDateString()}
+            <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+              <CalendarClock className="h-3 w-3" /> Last claimed {new Date(s.lastClaimAt).toLocaleDateString()}
             </p>
           ) : null}
         </div>
       </GlassCard>
 
-      {s.next ? (
-        <GlassCard>
-          <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-            Next rank · {s.next.rank}
+      {/* ---------- Rank ladder ---------- */}
+      {s.tiers.length > 1 ? (
+        <GlassCard className="p-5">
+          <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+            <Sparkles className="h-3.5 w-3.5 text-gold" /> Your rank path
           </p>
-          <div className="mt-3">
-            <div className="flex justify-between text-xs">
-              <span>Level 1 investment</span>
-              <span className="font-bold">
-                {money(s.invested)} / {money(s.next.invested)}
-              </span>
-            </div>
-            <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full rounded-full gradient-brand"
-                style={{ width: `${Math.min(100, (s.invested / Math.max(1, s.next.invested)) * 100)}%` }}
-              />
-            </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Still needed: {money(Math.max(0, s.next.invested - s.invested))}
-            </p>
+          <div className="mt-5 flex items-start">
+            {s.tiers.map((tier, i) => {
+              const reached = s.invested >= tier.invested;
+              const isCurrent = s.current?.rank === tier.rank;
+              const isNext = s.next?.rank === tier.rank;
+              return (
+                <Fragment key={tier.rank}>
+                  <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5 text-center">
+                    <span
+                      className={cn(
+                        "grid h-11 w-11 shrink-0 place-items-center rounded-2xl font-display text-sm font-black transition",
+                        isCurrent
+                          ? "gradient-brand text-primary-foreground shadow-lg shadow-primary/30 ring-4 ring-primary/15"
+                          : reached
+                            ? "bg-success/15 text-success"
+                            : isNext
+                              ? "glass-soft text-gold ring-1 ring-gold/40"
+                              : "glass-soft text-muted-foreground",
+                      )}
+                    >
+                      {isCurrent ? <Crown className="h-5 w-5" /> : reached ? <BadgeCheck className="h-5 w-5" /> : i + 1}
+                    </span>
+                    <span
+                      className={cn(
+                        "max-w-full truncate text-[11px] font-black",
+                        isCurrent ? "text-foreground" : reached ? "text-success" : "text-muted-foreground",
+                      )}
+                    >
+                      {tier.rank}
+                    </span>
+                    <span className="text-[10px] font-semibold text-muted-foreground">{money(tier.salary)}</span>
+                  </div>
+                  {i < s.tiers.length - 1 ? (
+                    <div className="relative top-5 h-0.5 min-w-4 flex-1 rounded-full bg-border/60">
+                      <div
+                        className={cn(
+                          "h-full rounded-full transition-all",
+                          s.invested >= s.tiers[i + 1].invested ? "gradient-brand" : "bg-border/60",
+                        )}
+                        style={{ width: "100%" }}
+                      />
+                    </div>
+                  ) : null}
+                </Fragment>
+              );
+            })}
           </div>
         </GlassCard>
       ) : null}
 
+      {/* ---------- Stats ---------- */}
+      <div className="grid grid-cols-3 gap-3">
+        <GlassCard className="p-4">
+          <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+            <Target className="h-3 w-3" /> L1 investment
+          </p>
+          <p className="mt-1 truncate font-display text-lg font-black">{money(s.invested)}</p>
+        </GlassCard>
+        <GlassCard className="p-4">
+          <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+            <UsersRound className="h-3 w-3" /> Direct team
+          </p>
+          <p className="mt-1 font-display text-lg font-black">{s.team}</p>
+        </GlassCard>
+        <GlassCard className="p-4">
+          <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+            <TrendingUp className="h-3 w-3" /> Next rank
+          </p>
+          <p className="mt-1 truncate font-display text-lg font-black">{s.next ? s.next.rank : "Max"}</p>
+        </GlassCard>
+      </div>
+
+      {s.next ? (
+        <GlassCard>
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-bold uppercase tracking-widest text-muted-foreground">
+              Progress to {s.next.rank}
+            </span>
+            <span className="font-black">
+              {money(s.invested)} / {money(s.next.invested)}
+            </span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full gradient-brand transition-all duration-700"
+              style={{ width: `${Math.min(100, (s.invested / Math.max(1, s.next.invested)) * 100)}%` }}
+            />
+          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Still needed: <span className="font-bold text-foreground">{money(Math.max(0, s.next.invested - s.invested))}</span>{" "}
+            to unlock {money(s.next.salary)}/week
+          </p>
+        </GlassCard>
+      ) : null}
+
+      {/* ---------- All ranks ---------- */}
       <section>
         <p className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">All ranks</p>
         <div className="grid gap-3 sm:grid-cols-2">
           {s.tiers.map((tier) => {
             const reached = s.invested >= tier.invested;
-            const canClaim = reached && s.claimable && s.current?.rank === tier.rank;
+            const isCurrent = s.current?.rank === tier.rank;
+            const canClaim = reached && isCurrent && s.claimable;
+            const pct = Math.min(100, (s.invested / Math.max(1, tier.invested)) * 100);
             return (
-              <GlassCard key={tier.rank} className={cn("relative overflow-hidden p-4", reached && "ring-1 ring-success/40")}>
+              <GlassCard
+                key={tier.rank}
+                className={cn(
+                  "relative overflow-hidden p-4 transition",
+                  isCurrent && "ring-1 ring-gold/50",
+                  reached && !isCurrent && "ring-1 ring-success/40",
+                )}
+              >
                 {reached ? (
                   <div className="pointer-events-none absolute -right-10 -top-10 h-28 w-28 rounded-full bg-success/15 blur-2xl" />
                 ) : null}
                 <div className="relative">
                   <div className="flex items-center justify-between gap-2">
                     <p className="flex items-center gap-2 font-display text-base font-extrabold">
-                      {reached ? <BadgeCheck className="h-4 w-4 text-success" /> : <Lock className="h-4 w-4 text-muted-foreground" />}
+                      {isCurrent ? (
+                        <Crown className="h-4 w-4 text-gold" />
+                      ) : reached ? (
+                        <BadgeCheck className="h-4 w-4 text-success" />
+                      ) : (
+                        <Lock className="h-4 w-4 text-muted-foreground" />
+                      )}
                       {tier.rank}
+                      {isCurrent ? (
+                        <span className="rounded-full bg-gold/15 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-gold">
+                          Current
+                        </span>
+                      ) : null}
                     </p>
                     <p className="font-display text-base font-extrabold text-gold">
                       {money(tier.salary)}
@@ -159,26 +276,26 @@ export default function SalaryPage() {
                     </p>
                   </div>
 
-                  <div className="mt-2.5">
+                  <div className="mt-3">
                     <div className="flex justify-between text-[11px] text-muted-foreground">
-                      <span>Level 1 investment</span>
+                      <span>L1 investment needed</span>
                       <span className="font-bold">
                         {money(Math.min(s.invested, tier.invested))} / {money(tier.invested)}
                       </span>
                     </div>
                     <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
                       <div
-                        className={cn("h-full rounded-full", reached ? "gradient-brand" : "bg-gold/30")}
-                        style={{ width: `${Math.min(100, (s.invested / Math.max(1, tier.invested)) * 100)}%` }}
+                        className={cn("h-full rounded-full transition-all duration-700", reached ? "gradient-brand" : "bg-gold/30")}
+                        style={{ width: `${pct}%` }}
                       />
                     </div>
                   </div>
 
                   <button
                     onClick={() => void claim()}
-                    disabled={!canClaim || busy}
+                    disabled={!canClaim && (!reached || !isCurrent) || busy}
                     className={cn(
-                      "btn-glass mt-3 flex h-11 w-full items-center justify-center gap-2 text-xs font-bold",
+                      "btn-glass mt-3 flex h-11 w-full items-center justify-center gap-2 text-xs font-black",
                       canClaim ? "btn-glass-primary" : "text-muted-foreground disabled:opacity-60",
                     )}
                   >
@@ -186,8 +303,8 @@ export default function SalaryPage() {
                     {canClaim
                       ? "Claim salary"
                       : !reached
-                        ? "Locked"
-                        : s.current?.rank === tier.rank
+                        ? `Locked · need ${money(tier.invested)}`
+                        : isCurrent
                           ? `Next claim in ${countdown(s.nextClaimIn)}`
                           : "Higher rank active"}
                   </button>
@@ -200,9 +317,9 @@ export default function SalaryPage() {
 
       <Link
         to="/dashboard/referrals"
-        className="btn-glass flex h-12 items-center justify-center text-sm font-semibold text-foreground"
+        className="btn-glass flex h-12 items-center justify-center gap-2 text-sm font-semibold text-foreground"
       >
-        Invite your team
+        <UsersRound className="h-4 w-4" /> Invite your team to grow your rank
       </Link>
     </div>
   );

@@ -1,8 +1,6 @@
 import { api } from "@/convex/_generated/api";
 import { useMutation } from "convex/react";
 import {
-  ArrowDownToLine,
-  ArrowUpFromLine,
   Coins,
   Crown,
   Gem,
@@ -110,27 +108,6 @@ export default function DashboardPage() {
           <p className="text-xs text-muted-foreground">{t("Good to see you")}</p>
           <h1 className="truncate font-display text-xl font-extrabold sm:text-2xl">{profile.name}</h1>
         </div>
-      </div>
-
-      {/* Quick actions */}
-      <div className="grid grid-cols-4 gap-2">
-        {[
-          { to: "/dashboard/deposit", label: "Deposit", icon: ArrowDownToLine },
-          { to: "/dashboard/withdraw", label: "Withdraw", icon: ArrowUpFromLine },
-          { to: "/dashboard/plans", label: "Plans", icon: Gem },
-          { to: "/dashboard/referrals", label: "Refer", icon: UsersRound },
-        ].map((a) => (
-          <Link
-            key={a.to}
-            to={a.to}
-            className="glass flex flex-col items-center gap-1.5 rounded-2xl p-3.5 transition-all hover:-translate-y-0.5"
-          >
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-primary/15 text-primary">
-              <a.icon className="h-4 w-4" />
-            </span>
-            <span className="text-[11px] font-bold">{a.label}</span>
-          </Link>
-        ))}
       </div>
 
       {/* Balance hero */}

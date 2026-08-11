@@ -347,8 +347,10 @@
 
 /* WhatsApp-accurate chat surface */
 .wa {
+  --wa-header: #008069;
   --wa-teal: #075e54;
   --wa-teal-2: #128c7e;
+  --wa-send: #008069;
   --wa-green: #25d366;
   --wa-out: #d9fdd3;
   --wa-in: #ffffff;
@@ -357,20 +359,25 @@
   --wa-dim: #667781;
   --wa-tick: #53bdeb;
   --wa-wall: #efeae2;
+  --wa-divider: #ffffff;
   color: var(--wa-text);
+  font-family: "Segoe UI", "Helvetica Neue", Helvetica, "Lucida Grande", Arial, Ubuntu, Cantarell, "Fira Sans", sans-serif;
 }
 .dark .wa {
+  --wa-header: #202c33;
   --wa-teal: #1f2c33;
   --wa-teal-2: #202c33;
+  --wa-send: #00a884;
   --wa-out: #005c4b;
   --wa-in: #202c33;
   --wa-panel: #111b21;
   --wa-text: #e9edef;
   --wa-dim: #8696a0;
   --wa-wall: #0b141a;
+  --wa-divider: #1f2c33;
 }
 .wa-header {
-  background: var(--wa-teal);
+  background: var(--wa-header);
   color: #ffffff;
 }
 .dark .wa-header {
@@ -379,13 +386,21 @@
 .wa-panel {
   background: var(--wa-panel);
 }
+/* Real WhatsApp doodle wallpaper — pinned like WhatsApp Web so messages
+   scroll over a fixed background. */
 .wa-wall {
   background-color: var(--wa-wall);
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMGIxNDFhIiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBvcGFjaXR5PSIwLjA3NSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzNiIgcj0iMTAiLz48cGF0aCBkPSJNMzAgMzF2Nmw0IDMiLz48cGF0aCBkPSJNMTIyIDE0bDIuNCA2LjYgNi42IDIuNC02LjYgMi40LTIuNCA2LjYtMi40LTYuNi02LjYtMi40IDYuNi0yLjR6Ii8+PHBhdGggZD0iTTE3MyA1MmM0LjYgMCA4IDMuNCA4IDhzLTMuNCA4LTggOGMtNi41IDAtMTEtNS40LTkuOC0xMS44IDEuMi02LjcgOC0xMSAxNC43LTkuNiA3LjYgMS41IDEyLjMgOC42IDEwLjcgMTYuMiIvPjxwYXRoIGQ9Ik00NSAxMDRjLTQtNy0xMy02LTEzIDEgMCA2IDggMTAgMTMgMTUgNS01IDEzLTkgMTMtMTUgMC03LTktOC0xMy0xeiIvPjxwYXRoIGQ9Ik0xNDAgMTEybDMyLTI0LTEwIDMyLTIyLTh6Ii8+PGNpcmNsZSBjeD0iODAiIGN5PSIxNTAiIHI9IjYuNSIvPjxwYXRoIGQ9Ik04MCAxNDMuNWMtNC40IDAtOCAzLjYtOCA4czMuNiA4IDggOGgxNWM1IDAgOS00IDktOXMtNC05LTktOWMtMS41LTQuNS03LTYuOC0xMS0zLjQtMS43IDEuNC0zIDMuNi00IDUuNHoiLz48cGF0aCBkPSJNMTYwIDE2MGgyOE0xODQgMTU2bDcgNC03IDQiLz48cGF0aCBkPSJNMTIgMTg4YzQuNS0zLjQgOSAzLjQgMTMuNSAwczkgMy40IDEzLjUgMCA5IDMuNCAxMy41IDAgOSAzLjQgMTMuNSAwIi8+PHBhdGggZD0iTTEyIDE4OGM0LjUtMy40IDkgMy40IDEzLjUgMHM5IDMuNCAxMy41IDAgOSAzLjQgMTMuNSAwIDkgMy40IDEzLjUgMCIvPjxjaXJjbGUgY3g9IjEwMCIgY3k9Ijg2IiByPSIxLjgiLz48Y2lyY2xlIGN4PSIxNTgiIGN5PSI5MCIgcj0iMS44Ii8+PGNpcmNsZSBjeD0iMTgiIGN5PSI3MiIgcj0iMS44Ii8+PGNpcmNsZSBjeD0iOTYiIGN5PSIxMjAiIHI9IjEuOCIvPjxjaXJjbGUgY3g9IjE4NiIgY3k9IjEyOCIgcj0iMS44Ii8+PGNpcmNsZSBjeD0iNjIiIGN5PSIxODQiIHI9IjEuOCIvPjxjaXJjbGUgY3g9IjEwIiBjeT0iOCIgcj0iMS44Ii8+PGNpcmNsZSBjeD0iMTkyIiBjeT0iMTk2IiByPSIxLjgiLz48cGF0aCBkPSJNNjAgMTBsMyA4IDggMy04IDMtMyA4LTMtOC04LTMgOC0zeiIvPjwvZz48L3N2Zz4=");
-  background-size: 200px 200px;
+  background-image: url("/wa-bg.png");
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
 }
 .dark .wa-wall {
-  background-image: url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyMDAiIGhlaWdodD0iMjAwIiB2aWV3Qm94PSIwIDAgMjAwIDIwMCI+PGcgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjZmZmZmZmIiBzdHJva2Utd2lkdGg9IjEuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIiBvcGFjaXR5PSIwLjA1NSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzNiIgcj0iMTAiLz48cGF0aCBkPSJNMzAgMzF2Nmw0IDMiLz48cGF0aCBkPSJNMTIyIDE0bDIuNCA2LjYgNi42IDIuNC02LjYgMi40LTIuNCA2LjYtMi40LTYuNi02LjYtMi40IDYuNi0yLjR6Ii8+PHBhdGggZD0iTTE3MyA1MmM0LjYgMCA4IDMuNCA4IDhzLTMuNCA4LTggOGMtNi41IDAtMTEtNS40LTkuOC0xMS44IDEuMi02LjcgOC0xMSAxNC43LTkuNiA3LjYgMS41IDEyLjMgOC42IDEwLjcgMTYuMiIvPjxwYXRoIGQ9Ik00NSAxMDRjLTQtNy0xMy02LTEzIDEgMCA2IDggMTAgMTMgMTUgNS01IDEzLTkgMTMtMTUgMC03LTktOC0xMy0xeiIvPjxwYXRoIGQ9Ik0xNDAgMTEybDMyLTI0LTEwIDMyLTIyLTh6Ii8+PGNpcmNsZSBjeD0iODAiIGN5PSIxNTAiIHI9IjYuNSIvPjxwYXRoIGQ9Ik04MCAxNDMuNWMtNC40IDAtOCAzLjYtOCA4czMuNiA4IDggOGgxNWM1IDAgOS00IDktOXMtNC05LTktOWMtMS41LTQuNS03LTYuOC0xMS0zLjQtMS43IDEuNC0zIDMuNi00IDUuNHoiLz48cGF0aCBkPSJNMTYwIDE2MGgyOE0xODQgMTU2bDcgNC03IDQiLz48cGF0aCBkPSJNMTIgMTg4YzQuNS0zLjQgOSAzLjQgMTMuNSAwczkgMy40IDEzLjUgMCA5IDMuNCAxMy41IDAgOSAzLjQgMTMuNSAwIi8+PHBhdGggZD0iTTEyIDE4OGM0LjUtMy40IDkgMy40IDEzLjUgMHM5IDMuNCAxMy41IDAgOSAzLjQgMTMuNSAwIDkgMy40IDEzLjUgMCIvPjxjaXJjbGUgY3g9IjEwMCIgY3k9Ijg2IiByPSIxLjgiLz48Y2lyY2xlIGN4PSIxNTgiIGN5PSI5MCIgcj0iMS44Ii8+PGNpcmNsZSBjeD0iMTgiIGN5PSI3MiIgcj0iMS44Ii8+PGNpcmNsZSBjeD0iOTYiIGN5PSIxMjAiIHI9IjEuOCIvPjxjaXJjbGUgY3g9IjE4NiIgY3k9IjEyOCIgcj0iMS44Ii8+PGNpcmNsZSBjeD0iNjIiIGN5PSIxODQiIHI9IjEuOCIvPjxjaXJjbGUgY3g9IjEwIiBjeT0iOCIgcj0iMS44Ii8+PGNpcmNsZSBjeD0iMTkyIiBjeT0iMTk2IiByPSIxLjgiLz48cGF0aCBkPSJNNjAgMTBsMyA4IDggMy04IDMtMyA4LTMtOC04LTMgOC0zeiIvPjwvZz48L3N2Zz4=");
+  background-color: #0b141a;
+  background-image: linear-gradient(rgba(11, 20, 26, 0.66), rgba(11, 20, 26, 0.66)), url("/wa-bg.png");
+  background-size: cover, cover;
+  background-position: center, center;
+  background-attachment: fixed, fixed;
 }
 .wa-out {
   background: var(--wa-out);
@@ -398,13 +413,18 @@
 }
 .wa-bubble {
   position: relative;
-  max-width: 75%;
-  border-radius: 8px;
+  max-width: 78%;
+  border-radius: 7.5px;
   padding: 6px 7px 8px;
   box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.13);
   font-size: 0.875rem;
   line-height: 1.3rem;
   word-break: break-word;
+}
+@media (min-width: 640px) {
+  .wa-bubble {
+    max-width: 65%;
+  }
 }
 .wa-bubble-out.wa-tail {
   border-top-right-radius: 0;
@@ -417,16 +437,16 @@
   content: "";
   position: absolute;
   top: 0;
-  width: 7px;
-  height: 12px;
+  width: 8px;
+  height: 13px;
 }
 .wa-bubble-out.wa-tail::before {
-  right: -7px;
+  right: -8px;
   background: var(--wa-out);
   clip-path: polygon(0 0, 100% 100%, 0 100%);
 }
 .wa-bubble-in.wa-tail::before {
-  left: -7px;
+  left: -8px;
   background: var(--wa-in);
   clip-path: polygon(100% 0, 0 100%, 100% 100%);
 }
@@ -458,8 +478,13 @@
   color: var(--wa-dim);
 }
 .wa-divider {
-  background: color-mix(in oklab, var(--wa-panel) 90%, transparent);
-  color: var(--wa-dim);
+  background: var(--wa-divider);
+  color: #54656f;
+  box-shadow: 0 1px 1px rgba(0, 0, 0, 0.09);
+}
+.dark .wa-divider {
+  color: #aebac1;
+  box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.4);
 }
 
 /* Announcement marquee */

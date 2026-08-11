@@ -493,7 +493,7 @@ export function AdminChat() {
           <button
             onClick={() => endRef.current?.scrollIntoView({ behavior: "smooth" })}
             aria-label="Scroll to latest"
-            className="absolute bottom-24 right-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-[var(--wa-teal-2)] to-[var(--wa-teal)] text-white shadow-lg"
+            className="absolute bottom-24 right-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-[var(--wa-send)] text-white shadow-lg"
           >
             <ChevronDown className="h-4 w-4" />
           </button>
@@ -598,7 +598,7 @@ export function AdminChat() {
             }}
             disabled={uploading}
             aria-label={recording ? "Send voice message" : "Send"}
-            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-[var(--wa-teal-2)] to-[var(--wa-teal)] text-white shadow-[0_4px_12px_-4px_rgba(18,140,126,0.55)] disabled:opacity-60"
+            className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-[var(--wa-send)] text-white shadow-[0_2px_8px_-2px_rgba(0,128,105,0.6)] transition hover:brightness-105 disabled:opacity-60"
           >
             {recording || text.trim() ? <Send className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
           </button>

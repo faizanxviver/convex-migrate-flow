@@ -11,6 +11,25 @@ function randomToken() {
   return `tk_${Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("")}`;
 }
 
+/**
+ * Never point the gateway's "return to site" at a Convex API domain
+ * (*.convex.site / *.convex.cloud) — those only serve API routes and would
+ * show "No matching routes found" to the user. Accepts bare https?:// origins.
+ */
+function cleanReturnBase(raw: string | undefined | null): string {
+  if (!raw) return "";
+  const s = raw.trim();
+  if (!/^https?:\/\/[^/\s]+$/.test(s)) return "";
+  try {
+    const u = new URL(s);
+    const host = u.hostname.toLowerCase();
+    if (host.endsWith(".convex.site") || host.endsWith(".convex.cloud")) return "";
+    return u.origin;
+  } catch {
+    return "";
+  }
+}
+
 function orderNo() {
   const d = new Date();
   const stamp = `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, "0")}${String(
@@ -30,8 +49,8 @@ function orderNo() {
  * token — the exact behaviour of the original createCheckoutSession server fn.
  */
 export const createSession = mutation({
-  args: { amount: v.number() },
-  handler: async (ctx, { amount }) => {
+  args: { amount: v.number(), siteUrl: v.optional(v.string()) },
+  handler: async (ctx, { amount, siteUrl }) => {
     const userId = await requireUser(ctx);
 
     const amt = Math.round(Number(amount));
@@ -48,6 +67,9 @@ export const createSession = mutation({
       userId,
       amount: amt,
       status: "created",
+      // Where the user actually is (browser origin) — used for the gateway's
+      // "return to site" link. Convex API domains are rejected on the way in.
+      siteUrl: cleanReturnBase(siteUrl) || undefined,
       expiresAt: now + SESSION_TTL_MS,
       createdAt: now,
       updatedAt: now,
@@ -84,11 +106,15 @@ export const getCheckoutSession = query({
     const methods = await ctx.db.query("paymentMethods").collect();
     const active = methods.filter((m) => m.active).sort((a, b) => a.sortOrder - b.sortOrder);
 
-    // Return-to-site URL: explicit SITE_URL wins, then the origin the gateway
-    // called us from, then the legacy domain as a last resort.
+    // Return-to-site URL: explicit SITE_URL wins, then the origin stored when
+    // the session was created (the browser the user was actually in), then the
+    // origin the gateway called us from, then the legacy domain as a last
+    // resort. Every candidate is filtered so a Convex API domain (*.convex.site
+    // / *.convex.cloud) can never leak into the return link.
     const base =
-      process.env.SITE_URL?.trim() ||
-      (siteOrigin && /^https?:\/\/[^/]+$/.test(siteOrigin) ? siteOrigin : "") ||
+      cleanReturnBase(process.env.SITE_URL) ||
+      cleanReturnBase(session.siteUrl) ||
+      cleanReturnBase(siteOrigin) ||
       "https://hopex.site";
 
     return {

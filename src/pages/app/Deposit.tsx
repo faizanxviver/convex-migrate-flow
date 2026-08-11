@@ -6,13 +6,12 @@ import { cn } from "@/lib/utils";
 import { useMutation } from "convex/react";
 import { ArrowDownLeft, Clock, Loader2, ShieldCheck, Wallet, Zap } from "lucide-react";
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { toast } from "sonner";
 
 export default function DepositPage() {
   const { profile, settings, transactions } = useHope();
   const createSession = useMutation(api.checkout.createSession);
-  const navigate = useNavigate();
   const [amount, setAmount] = useState<string>("");
   const [busy, setBusy] = useState(false);
   const [connecting, setConnecting] = useState(false);
@@ -33,8 +32,12 @@ export default function DepositPage() {
     setBusy(true);
     setConnecting(true);
     try {
-      const session = await createSession({ amount: value });
-      // Keep the connecting screen visible for a moment, then open MPay in a new tab.
+      // Tell the backend where the user actually is, so the gateway's
+      // "return to site" link points at this website (never at a Convex API
+      // domain). The gateway itself only ever needs the token.
+      const session = await createSession({ amount: value, siteUrl: window.location.origin });
+      // Keep the connecting screen visible for a moment, then open MPay in a
+      // new tab — the current tab stays on this page.
       await new Promise((r) => setTimeout(r, 1200));
       const tab = window.open(session.url, "_blank", "noopener,noreferrer");
       setConnecting(false);
@@ -45,7 +48,6 @@ export default function DepositPage() {
         return;
       }
       toast.success("MPay opened in a new tab. Complete your payment there.");
-      navigate("/dashboard/deposit-history");
     } catch (err) {
       setConnecting(false);
       setBusy(false);

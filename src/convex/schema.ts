@@ -349,6 +349,7 @@ const schema = defineSchema(
       userId: v.id("users"),
       amount: v.number(),
       status: v.string(),
+      siteUrl: v.optional(v.string()), // the website origin that created this session (for the gateway return_url)
       methodId: v.optional(v.string()),
       methodName: v.optional(v.string()),
       proofUrl: v.optional(v.string()),

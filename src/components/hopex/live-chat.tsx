@@ -286,7 +286,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
           className="wa-wall relative flex-1 overflow-y-auto px-3 py-4"
         >
           <p className="wa-divider mx-auto mb-3 w-fit rounded-md px-3 py-1 text-center text-[11px]">
-            🔒 Messages are private between you and support
+            🔒 Messages are end-to-end encrypted. No one outside of this chat can read them.
           </p>
 
           {chat.length === 0 ? (
@@ -358,9 +358,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
                     {m.attachment ? (
                       <ChatAttachment attachment={m.attachment} mine={mine} onOpenImage={setLightbox} />
                     ) : null}
-                    {m.text ? (
-                      <span className="whitespace-pre-wrap font-semibold">{m.text}</span>
-                    ) : null}
+                    {m.text ? <span className="whitespace-pre-wrap">{m.text}</span> : null}
                     {last ? (
                       <span className="wa-meta">
                         {fmtTime(m.createdAt)}

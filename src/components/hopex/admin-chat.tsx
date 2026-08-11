@@ -455,7 +455,7 @@ export function AdminChat() {
                       />
                     ) : null}
                     {m.text && m.text !== m.attachment?.name ? (
-                      <span className="whitespace-pre-wrap font-semibold">{m.text}</span>
+                      <span className="whitespace-pre-wrap">{m.text}</span>
                     ) : null}
                     {last ? (
                       <span className="wa-meta">

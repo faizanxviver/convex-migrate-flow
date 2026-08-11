@@ -6,12 +6,14 @@ import { AdminChat } from "@/components/hopex/admin-chat";
 import { useUploader } from "@/components/hopex/storage-image";
 import { useAdminData } from "@/hooks/use-admin";
 import { useHope } from "@/hooks/use-hope";
+import { useAuth } from "@/hooks/use-auth";
 import { fmtDate, fmtDateTime, initials, money, planDaily, round2 } from "@/lib/hopex";
 import { cn } from "@/lib/utils";
 import { useAction, useMutation, useQuery } from "convex/react";
 import {
   Activity,
   ArrowDownToLine,
+  ArrowRight,
   ArrowUpFromLine,
   Check,
   CheckCheck,
@@ -31,6 +33,7 @@ import {
   LayoutDashboard,
   Link2,
   Loader2,
+  LogOut,
   Megaphone,
   Menu,
   MessageSquare,
@@ -56,7 +59,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Navigate } from "react-router";
+import { Link, Navigate } from "react-router";
 import { toast } from "sonner";
 
 export default function AdminPage() {
@@ -118,6 +121,8 @@ const GROUPS: { label: string; items: TabId[] }[] = [
 ];
 
 function AdminConsole() {
+  const { user } = useHope();
+  const { signOut } = useAuth();
   const { transactions, threads } = useAdminData();
   const [tab, setTab] = useState<TabId>("Overview");
   const [menuOpen, setMenuOpen] = useState(false);
@@ -173,118 +178,151 @@ function AdminConsole() {
   );
 
   return (
-    <div>
-      {/* Console header */}
-      <div className="glass relative mb-5 overflow-hidden rounded-3xl p-5 sm:p-6">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-primary/25 blur-3xl" />
-        <div className="relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:flex sm:flex-wrap">
-          <div className="flex min-w-0 items-center gap-3">
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl gradient-brand text-primary-foreground sm:h-12 sm:w-12">
-              <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <h1 className="truncate font-display text-xl font-extrabold sm:text-3xl">HopeX Console</h1>
-              <p className="hidden text-sm text-muted-foreground sm:block">
-                Live control over users, money flow, plans and support.
-              </p>
-            </div>
-          </div>
-          <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-auto">
-            <AdminCommandPalette onJump={(t) => setTab(t as TabId)} />
-            <button
-              onClick={() => setTab("Auto Deposit")}
-              className={cn(
-                "flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold",
-                pendingDeps ? "bg-destructive/15 text-destructive" : "glass-soft",
-              )}
-            >
-              <Clock className="h-3.5 w-3.5" /> {pendingDeps}{" "}
-              <span className="hidden sm:inline">deposits waiting</span>
-            </button>
-            <button
-              onClick={() => setTab("Withdrawals")}
-              className={cn(
-                "flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold",
-                pendingWds ? "bg-destructive/15 text-destructive" : "glass-soft",
-              )}
-            >
-              <Clock className="h-3.5 w-3.5" /> {pendingWds}{" "}
-              <span className="hidden sm:inline">withdrawals waiting</span>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile section switcher */}
-      <div className="sticky top-[4.25rem] z-30 mb-4 lg:hidden">
+    <div className="fixed inset-0 z-[100] flex flex-col bg-background">
+      {/* ---------- Console top bar ---------- */}
+      <header className="glass-soft z-30 flex shrink-0 items-center gap-2 border-b border-border/60 px-3 py-2.5 sm:gap-3 sm:px-5">
         <button
           onClick={() => setMenuOpen(true)}
-          className="glass flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left"
+          aria-label="Open console menu"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-xl glass-soft lg:hidden"
         >
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl btn-glass btn-glass-gold text-foreground">
-            {(() => {
-              const Icon = TAB_ICONS[tab];
-              return <Icon className="h-4 w-4" />;
-            })()}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-              Section
-            </span>
-            <span className="block truncate text-sm font-bold">{tab}</span>
-          </span>
-          <Menu className="h-5 w-5 shrink-0 text-muted-foreground" />
+          <Menu className="h-4 w-4" />
         </button>
-      </div>
+        <Link to="/" className="flex items-center gap-2">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl gradient-brand font-display text-sm font-black text-primary-foreground">
+            {(user?.name?.[0] ?? "H").toUpperCase()}
+          </span>
+          <span className="hidden font-display text-base font-extrabold sm:block">HopeX Console</span>
+        </Link>
+        <span className="hidden items-center gap-1.5 rounded-full bg-success/15 px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-success md:inline-flex">
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-success" /> Live
+        </span>
+        <div className="flex-1" />
+        <Link
+          to="/dashboard"
+          className="btn-glass flex h-10 items-center gap-2 rounded-xl px-3.5 text-xs font-bold text-foreground"
+        >
+          <Globe className="h-3.5 w-3.5" /> View site
+        </Link>
+        <button
+          onClick={() => void signOut()}
+          aria-label="Sign out"
+          className="grid h-10 w-10 place-items-center rounded-xl glass-soft text-muted-foreground transition hover:text-destructive"
+        >
+          <LogOut className="h-4 w-4" />
+        </button>
+      </header>
 
-      {menuOpen ? (
-        <div className="fixed inset-0 z-[70] lg:hidden">
-          <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" onClick={() => setMenuOpen(false)} />
-          <div className="glass animate-rise absolute inset-y-0 left-0 flex w-[17rem] max-w-[85vw] flex-col overflow-y-auto rounded-r-3xl p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <p className="font-display text-base font-extrabold">Console menu</p>
-              <button onClick={() => setMenuOpen(false)} aria-label="Close menu">
-                <X className="h-5 w-5 text-muted-foreground" />
-              </button>
-            </div>
-            {navList}
-          </div>
-        </div>
-      ) : null}
-
-      <div className="grid gap-5 lg:grid-cols-[15.5rem_minmax(0,1fr)]">
-        <aside className="hidden lg:sticky lg:top-24 lg:block lg:self-start">
-          <div className="glass rounded-3xl p-3">{navList}</div>
+      <div className="flex min-h-0 flex-1">
+        {/* ---------- Sidebar — always open on desktop ---------- */}
+        <aside className="hidden w-64 shrink-0 flex-col border-r border-border/60 p-3 lg:flex">
+          <p className="truncate px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            {user?.name ?? "Admin"}
+          </p>
+          <div className="flex-1 overflow-y-auto">{navList}</div>
+          <button
+            onClick={() => void signOut()}
+            className="mt-3 flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold text-muted-foreground transition hover:bg-destructive/10 hover:text-destructive"
+          >
+            <LogOut className="h-4 w-4" /> Sign out
+          </button>
         </aside>
 
-        <div className="min-w-0">
-          {tab === "Overview" ? <OverviewPanel onJump={setTab} /> : null}
-          {tab === "Users" ? <UsersManager /> : null}
-          {tab === "Auto Deposit" || tab === "Withdrawals" ? (
-            <MoneyDesk kind={tab === "Auto Deposit" ? "deposit" : "withdraw"} onViewProof={setProof} />
-          ) : null}
-          {tab === "Methods" ? <MethodsManager /> : null}
-          {tab === "Plans" ? <PlansManager /> : null}
-          {tab === "Promo Codes" ? <PromoManager /> : null}
-          {tab === "Leader Plans" ? <LeaderPlansPanel /> : null}
-          {tab === "Balance Control" ? <BalanceControl /> : null}
-          {tab === "Support Chat" ? <AdminChat /> : null}
-          {tab === "Channels" ? <ChannelsManager /> : null}
-          {tab === "Broadcast" ? <BroadcastPanel /> : null}
-          {tab === "Audit Log" ? <AuditLogPanel /> : null}
-          {tab === "Tools" ? <ToolsPanel /> : null}
-          {tab === "SEO" ? <SeoSettings /> : null}
-          {tab === "API Keys" ? <ApiKeysPanel /> : null}
-          {tab === "Settings" ? <SettingsPanel /> : null}
-        </div>
+        {/* ---------- Mobile drawer ---------- */}
+        {menuOpen ? (
+          <div className="fixed inset-0 z-[120] lg:hidden">
+            <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" onClick={() => setMenuOpen(false)} />
+            <div className="glass animate-rise absolute inset-y-0 left-0 flex w-[17rem] max-w-[85vw] flex-col overflow-y-auto rounded-r-3xl p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="font-display text-base font-extrabold">Console menu</p>
+                <button onClick={() => setMenuOpen(false)} aria-label="Close menu">
+                  <X className="h-5 w-5 text-muted-foreground" />
+                </button>
+              </div>
+              {navList}
+            </div>
+          </div>
+        ) : null}
+
+        {/* ---------- Main ---------- */}
+        <main className="min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
+          <div className="mx-auto max-w-6xl space-y-5">
+            {/* Console header */}
+            <div className="glass relative overflow-hidden rounded-3xl p-5 sm:p-6">
+              <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-primary/25 blur-3xl" />
+              <div className="relative grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4 sm:flex sm:flex-wrap">
+                <div className="flex min-w-0 items-center gap-3">
+                  <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl gradient-brand text-primary-foreground sm:h-12 sm:w-12">
+                    <ShieldCheck className="h-5 w-5 sm:h-6 sm:w-6" />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <h1 className="truncate font-display text-xl font-extrabold sm:text-3xl">HopeX Console</h1>
+                    <p className="hidden text-sm text-muted-foreground sm:block">
+                      Live control over users, money flow, plans and support.
+                    </p>
+                  </div>
+                </div>
+                <div className="col-span-2 flex flex-wrap items-center gap-2 sm:col-auto">
+                  <AdminCommandPalette onJump={(t) => setTab(t as TabId)} />
+                  <button
+                    onClick={() => setTab("Auto Deposit")}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold",
+                      pendingDeps ? "bg-destructive/15 text-destructive" : "glass-soft",
+                    )}
+                  >
+                    <Clock className="h-3.5 w-3.5" /> {pendingDeps}{" "}
+                    <span className="hidden sm:inline">deposits waiting</span>
+                  </button>
+                  <button
+                    onClick={() => setTab("Withdrawals")}
+                    className={cn(
+                      "flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold",
+                      pendingWds ? "bg-destructive/15 text-destructive" : "glass-soft",
+                    )}
+                  >
+                    <Clock className="h-3.5 w-3.5" /> {pendingWds}{" "}
+                    <span className="hidden sm:inline">withdrawals waiting</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Panels */}
+            <div>
+              {tab === "Overview" ? <OverviewPanel onJump={setTab} /> : null}
+              {tab === "Users" ? <UsersManager /> : null}
+              {tab === "Auto Deposit" || tab === "Withdrawals" ? (
+                <MoneyDesk kind={tab === "Auto Deposit" ? "deposit" : "withdraw"} onViewProof={setProof} />
+              ) : null}
+              {tab === "Methods" ? <MethodsManager /> : null}
+              {tab === "Plans" ? <PlansManager /> : null}
+              {tab === "Promo Codes" ? <PromoManager /> : null}
+              {tab === "Leader Plans" ? <LeaderPlansPanel /> : null}
+              {tab === "Balance Control" ? <BalanceControl /> : null}
+              {tab === "Support Chat" ? <AdminChat /> : null}
+              {tab === "Channels" ? <ChannelsManager /> : null}
+              {tab === "Broadcast" ? <BroadcastPanel /> : null}
+              {tab === "Audit Log" ? <AuditLogPanel /> : null}
+              {tab === "Tools" ? <ToolsPanel /> : null}
+              {tab === "SEO" ? <SeoSettings /> : null}
+              {tab === "API Keys" ? <ApiKeysPanel /> : null}
+              {tab === "Settings" ? <SettingsPanel /> : null}
+            </div>
+          </div>
+        </main>
       </div>
 
+      {/* Proof lightbox */}
       {proof ? (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-background/80 p-4 backdrop-blur-md"
           onClick={() => setProof(null)}
         >
-          <div className="glass max-h-full w-full max-w-lg overflow-auto rounded-3xl p-4" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="glass max-h-full w-full max-w-lg overflow-auto rounded-3xl p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="mb-3 flex items-center justify-between">
               <p className="text-sm font-bold">Payment proof</p>
               <div className="flex items-center gap-2">
@@ -309,10 +347,12 @@ function AdminConsole() {
   );
 }
 
-/* ============================== command palette ============================== */
 
-function AdminCommandPalette({ onJump }: { onJump: (tab: TabId) => void }) {
-  const { users, transactions } = useAdminData();
+
+/* ============================== overview ============================== */
+
+/** Cmd/Ctrl+K palette to jump between console sections. */
+function AdminCommandPalette({ onJump }: { onJump: (t: TabId) => void }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -321,7 +361,7 @@ function AdminCommandPalette({ onJump }: { onJump: (tab: TabId) => void }) {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        setOpen((o) => !o);
+        setOpen((v) => !v);
       }
       if (e.key === "Escape") setOpen(false);
     };
@@ -330,102 +370,60 @@ function AdminCommandPalette({ onJump }: { onJump: (tab: TabId) => void }) {
   }, []);
 
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 40);
+    if (open) inputRef.current?.focus();
   }, [open]);
 
-  const term = q.trim().toLowerCase();
-  const foundUsers = term
-    ? users
-        .filter(
-          (u) =>
-            u.name.toLowerCase().includes(term) ||
-            (u.phone ?? "").includes(term) ||
-            (u.email ?? "").toLowerCase().includes(term) ||
-            u.referralCode.toLowerCase().includes(term),
-        )
-        .slice(0, 6)
-    : [];
-  const foundTxs = term
-    ? transactions
-        .filter(
-          (t) =>
-            (t.reference ?? "").toLowerCase().includes(term) ||
-            String(t.amount).includes(term) ||
-            t.type.includes(term),
-        )
-        .slice(0, 5)
-    : [];
+  const results = TABS.filter((t) => t.toLowerCase().includes(q.trim().toLowerCase()));
 
   return (
     <>
       <button
         onClick={() => setOpen(true)}
-        className="flex items-center gap-2 rounded-xl glass-soft px-3 py-2 text-xs font-semibold text-muted-foreground"
+        className="flex h-10 items-center gap-2 rounded-xl glass-soft px-3 text-xs font-semibold text-muted-foreground"
       >
-        <Search className="h-3.5 w-3.5" /> Search
-        <kbd className="rounded-md bg-foreground/10 px-1.5 py-0.5 text-[10px]">⌘K</kbd>
+        <Search className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline">Jump to…</span>
+        <kbd className="hidden rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold sm:inline">Ctrl K</kbd>
       </button>
-
       {open ? (
-        <div className="fixed inset-0 z-[80] flex items-start justify-center bg-background/70 p-4 pt-24 backdrop-blur-sm">
-          <div className="animate-rise w-full max-w-xl overflow-hidden rounded-3xl border border-border bg-popover shadow-[var(--shadow-elegant)]">
-            <div className="flex items-center gap-3 border-b border-border/60 px-4">
-              <Search className="h-4 w-4 text-muted-foreground" />
+        <div className="fixed inset-0 z-[130] grid place-items-start justify-items-center pt-[12vh]">
+          <div className="absolute inset-0 bg-background/70 backdrop-blur-sm" onClick={() => setOpen(false)} />
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-[var(--shadow-elegant)]">
+            <div className="flex items-center gap-2 border-b border-border/60 px-4">
+              <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
               <input
                 ref={inputRef}
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Search users, phone, referral code, amount…"
-                className="h-14 flex-1 bg-transparent text-sm outline-none"
+                placeholder="Search sections…"
+                className="h-12 w-full bg-transparent text-sm outline-none"
               />
-              <button onClick={() => setOpen(false)} aria-label="Close search">
+              <button onClick={() => setOpen(false)} aria-label="Close palette">
                 <X className="h-4 w-4 text-muted-foreground" />
               </button>
             </div>
-            <div className="max-h-[55vh] overflow-y-auto p-2">
-              {!term ? (
-                <p className="p-4 text-sm text-muted-foreground">Type to search across every user and transaction.</p>
-              ) : null}
-              {foundUsers.map((u) => (
-                <button
-                  key={u.userId}
-                  onClick={() => {
-                    onJump("Users");
-                    setOpen(false);
-                  }}
-                  className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition hover:bg-accent/50"
-                >
-                  <span className="grid h-9 w-9 place-items-center rounded-xl gradient-brand text-sm font-bold text-primary-foreground">
-                    {u.name[0]}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold">{u.name}</span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {u.phone ?? u.email} · {u.referralCode}
-                    </span>
-                  </span>
-                  <span className="text-sm font-bold">{money(u.balance)}</span>
-                </button>
-              ))}
-              {foundTxs.map((t) => (
-                <button
-                  key={t._id}
-                  onClick={() => {
-                    onJump(t.type === "withdraw" ? "Withdrawals" : "Auto Deposit");
-                    setOpen(false);
-                  }}
-                  className="flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-left transition hover:bg-accent/50"
-                >
-                  <Wallet className="h-4 w-4 text-primary" />
-                  <span className="min-w-0 flex-1 truncate text-sm font-semibold capitalize">
-                    {t.type} · {t.status}
-                  </span>
-                  <span className="text-sm font-bold">{money(t.amount)}</span>
-                </button>
-              ))}
-              {term && foundUsers.length === 0 && foundTxs.length === 0 ? (
-                <p className="p-4 text-sm text-muted-foreground">No matches.</p>
-              ) : null}
+            <div className="max-h-80 overflow-y-auto p-2">
+              {results.length === 0 ? (
+                <p className="p-4 text-center text-sm text-muted-foreground">No sections found.</p>
+              ) : (
+                results.map((t) => {
+                  const Icon = TAB_ICONS[t];
+                  return (
+                    <button
+                      key={t}
+                      onClick={() => {
+                        onJump(t);
+                        setOpen(false);
+                        setQ("");
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-semibold transition hover:bg-accent"
+                    >
+                      <Icon className="h-4 w-4 text-muted-foreground" />
+                      {t}
+                    </button>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>
@@ -434,16 +432,17 @@ function AdminCommandPalette({ onJump }: { onJump: (tab: TabId) => void }) {
   );
 }
 
-/* ============================== overview ============================== */
-
 function OverviewPanel({ onJump }: { onJump: (t: TabId) => void }) {
-  const { stats, users, transactions, audit } = useAdminData();
+  const { stats, users, transactions, threads, audit } = useAdminData();
   const runChecks = useMutation(api.leaderPlans.runLeaderPlanChecks);
   const [busy, setBusy] = useState(false);
 
   if (!stats) return null;
 
   const pending = transactions.filter((t) => t.status === "pending" || t.status === "processing");
+  const pendingDeps = pending.filter((t) => t.type === "deposit").length;
+  const pendingWds = pending.filter((t) => t.type === "withdraw").length;
+  const unreadChats = threads.reduce((a, t) => a + t.unread, 0);
   const recentUsers = [...users].sort((a, b) => b.createdAt - a.createdAt).slice(0, 6);
 
   const handleChecks = async () => {
@@ -468,6 +467,57 @@ function OverviewPanel({ onJump }: { onJump: (t: TabId) => void }) {
         <StatCard label="Capital invested" value={money(stats.aum)} />
         <StatCard label="Platform profit" value={money(Math.max(0, stats.totalDeposits - stats.totalWithdrawals))} accent="success" />
       </div>
+
+      {pendingDeps + pendingWds + unreadChats > 0 ? (
+        <GlassCard className="relative overflow-hidden">
+          <div className="pointer-events-none absolute -right-10 -top-12 h-32 w-32 rounded-full bg-destructive/15 blur-3xl" />
+          <div className="relative mb-3 flex items-center gap-2">
+            <Clock className="h-4 w-4 text-destructive" />
+            <h2 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Needs attention</h2>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            <button
+              onClick={() => onJump("Auto Deposit")}
+              className="group flex items-center gap-3 rounded-2xl glass-soft p-3.5 text-left transition hover:-translate-y-0.5"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-destructive/15 text-destructive">
+                <ArrowDownToLine className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-semibold text-muted-foreground">Pending deposits</span>
+                <span className="block font-display text-lg font-black">{pendingDeps}</span>
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
+            </button>
+            <button
+              onClick={() => onJump("Withdrawals")}
+              className="group flex items-center gap-3 rounded-2xl glass-soft p-3.5 text-left transition hover:-translate-y-0.5"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-gold/20 text-gold">
+                <ArrowUpFromLine className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-semibold text-muted-foreground">Pending withdrawals</span>
+                <span className="block font-display text-lg font-black">{pendingWds}</span>
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
+            </button>
+            <button
+              onClick={() => onJump("Support Chat")}
+              className="group flex items-center gap-3 rounded-2xl glass-soft p-3.5 text-left transition hover:-translate-y-0.5"
+            >
+              <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
+                <MessageSquare className="h-4 w-4" />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[11px] font-semibold text-muted-foreground">Unread chats</span>
+                <span className="block font-display text-lg font-black">{unreadChats}</span>
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
+            </button>
+          </div>
+        </GlassCard>
+      ) : null}
 
       <GlassCard>
         <div className="mb-3 flex items-center gap-2">

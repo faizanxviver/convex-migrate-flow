@@ -23,7 +23,7 @@ export default function PromoPage() {
     try {
       const res = await redeem({ code: code.trim(), amount: 0 });
       if (!res || res.bonus <= 0) {
-        toast.error("This promo code is invalid, used up or expired.");
+        toast.error("This code is invalid, expired, already used or not for your account.");
         return;
       }
       toast.success(`${money(res.bonus)} bonus credited!`);

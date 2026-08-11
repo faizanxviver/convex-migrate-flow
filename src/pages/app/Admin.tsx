@@ -1,6 +1,7 @@
 import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { GlassCard, StatCard, StatusBadge } from "@/components/hopex/glass";
+import { PromoManager } from "@/components/hopex/promo-manager";
 import { useUploader } from "@/components/hopex/storage-image";
 import { useAdminData } from "@/hooks/use-admin";
 import { useHope } from "@/hooks/use-hope";
@@ -257,7 +258,7 @@ function AdminConsole() {
           ) : null}
           {tab === "Methods" ? <MethodsManager /> : null}
           {tab === "Plans" ? <PlansManager /> : null}
-          {tab === "Promo Codes" ? <PromoCodesPanel /> : null}
+          {tab === "Promo Codes" ? <PromoManager /> : null}
           {tab === "Leader Plans" ? <LeaderPlansPanel /> : null}
           {tab === "Balance Control" ? <BalanceControl /> : null}
           {tab === "Support Chat" ? <SupportChatPanel /> : null}
@@ -1525,107 +1526,6 @@ function PlansManager() {
 }
 
 /* ============================== promo codes ============================== */
-
-function PromoCodesPanel() {
-  const { promos } = useAdminData();
-  const upsert = useMutation(api.promoCodes.adminUpsertPromo);
-  const remove = useMutation(api.promoCodes.adminDeletePromo);
-  const [code, setCode] = useState("");
-  const [type, setType] = useState<"percent" | "fixed">("percent");
-  const [value, setValue] = useState("5");
-  const [limit, setLimit] = useState("100");
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <div className="space-y-4">
-      <button
-        onClick={async () => {
-          const c = code.trim().toUpperCase();
-          if (!c) return toast.error("Enter a code");
-          setBusy(true);
-          try {
-            await upsert({ code: c, type, value: Number(value) || 0, usageLimit: Number(limit) || 100, active: true });
-            toast.success("Promo code created.");
-            setCode("");
-          } catch (e) {
-            toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not create code");
-          } finally {
-            setBusy(false);
-          }
-        }}
-        className="rounded-xl gradient-brand px-5 py-2.5 text-sm font-semibold text-primary-foreground"
-      >
-        + New promo code
-      </button>
-
-      <div className="flex flex-wrap items-end gap-2">
-        <input
-          value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase())}
-          placeholder="CODE"
-          className="h-11 w-40 rounded-xl border border-input bg-background/40 px-3 text-sm uppercase outline-none"
-        />
-        <select value={type} onChange={(e) => setType(e.target.value as "percent" | "fixed")} className="h-11 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none">
-          <option value="percent">percent</option>
-          <option value="fixed">fixed</option>
-        </select>
-        <input
-          type="number"
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
-          placeholder="Value"
-          className="h-11 w-24 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
-        />
-        <input
-          type="number"
-          value={limit}
-          onChange={(e) => setLimit(e.target.value)}
-          placeholder="Limit"
-          className="h-11 w-24 rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
-        />
-      </div>
-
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {promos.map((p) => (
-          <GlassCard key={p._id}>
-            <div className="flex items-center justify-between gap-3">
-              <p className="font-display text-lg font-extrabold text-gold">{p.code}</p>
-              <StatusBadge status={p.active ? "approved" : "rejected"} />
-            </div>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {p.type === "percent" ? `${p.value}% bonus` : `${money(p.value)} bonus`} · used {p.used}/{p.usageLimit}
-            </p>
-            <button
-              onClick={() =>
-                void upsert({
-                  id: p._id,
-                  code: p.code,
-                  type: p.type,
-                  value: p.value,
-                  usageLimit: p.usageLimit,
-                  expiresAt: p.expiresAt,
-                  active: !p.active,
-                }).then(() => toast.success("Updated."))
-              }
-              className="mt-4 w-full rounded-lg glass-soft py-2 text-xs font-semibold"
-            >
-              {p.active ? "Disable" : "Enable"}
-            </button>
-            <button
-              onClick={() => {
-                if (confirm(`Delete ${p.code}?`)) void remove({ id: p._id }).then(() => toast.success("Deleted."));
-              }}
-              className="mt-2 w-full rounded-lg bg-destructive/15 py-2 text-xs font-semibold text-destructive"
-            >
-              Delete
-            </button>
-          </GlassCard>
-        ))}
-        {busy ? <Loader2 className="h-5 w-5 animate-spin text-primary" /> : null}
-      </div>
-    </div>
-  );
-}
 
 /* ============================== leader plans ============================== */
 

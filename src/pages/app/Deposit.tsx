@@ -31,24 +31,32 @@ export default function DepositPage() {
     }
     setBusy(true);
     setConnecting(true);
+    // Open a blank tab synchronously inside the click gesture so popup
+    // blockers never redirect us to the same tab. We only point it at MPay
+    // once the backend session is ready.
+    const tab = window.open("", "_blank", "noopener,noreferrer");
     try {
       // Tell the backend where the user actually is, so the gateway's
       // "return to site" link points at this website (never at a Convex API
       // domain). The gateway itself only ever needs the token.
       const session = await createSession({ amount: value, siteUrl: window.location.origin });
-      // Keep the connecting screen visible for a moment, then open MPay in a
-      // new tab — the current tab stays on this page.
+      // Keep the connecting screen visible for a moment, then send the tab to MPay.
       await new Promise((r) => setTimeout(r, 1200));
-      const tab = window.open(session.url, "_blank", "noopener,noreferrer");
       setConnecting(false);
       setBusy(false);
-      if (!tab) {
-        // Popup blocked — send the user straight to the gateway instead of hanging.
-        window.location.href = session.url;
+      if (tab && !tab.closed) {
+        tab.location.href = session.url;
+      } else {
+        // No tab (blocked) — never navigate the current page away; give the
+        // user a direct link instead.
+        toast.success("MPay is ready — click here to open it:", {
+          action: { label: "Open MPay", onClick: () => window.open(session.url, "_blank", "noopener,noreferrer") },
+        });
         return;
       }
       toast.success("MPay opened in a new tab. Complete your payment there.");
     } catch (err) {
+      tab?.close();
       setConnecting(false);
       setBusy(false);
       toast.error(err instanceof Error ? err.message : "Could not open the payment gateway.");

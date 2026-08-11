@@ -48,6 +48,14 @@ export type ChatSender = Infer<typeof chatSenderValidator>;
 export const paymentKindValidator = v.union(v.literal("wallet"), v.literal("bank"));
 export type PaymentKind = Infer<typeof paymentKindValidator>;
 
+export const promoAudienceValidator = v.union(
+  v.literal("all"),
+  v.literal("depositors"),
+  v.literal("active_plan"),
+  v.literal("new"),
+);
+export type PromoAudience = Infer<typeof promoAudienceValidator>;
+
 export const claimStatusValidator = v.union(
   v.literal("pending"),
   v.literal("approved"),
@@ -244,8 +252,22 @@ const schema = defineSchema(
       used: v.number(),
       expiresAt: v.optional(v.number()),
       active: v.boolean(),
+      // New (2026-08-11): audience targeting, per-user limit and a note.
+      audience: v.optional(promoAudienceValidator), // "all" | "depositors" | "active_plan" | "new"
+      perUserLimit: v.optional(v.number()), // redemptions allowed per user
+      description: v.optional(v.string()), // admin note / campaign label
       createdAt: v.number(),
     }).index("by_code", ["code"]),
+
+    // ---- promo redemptions (was public.promo_redemptions) ---------------------
+    promoRedemptions: defineTable({
+      promoId: v.id("promoCodes"),
+      userId: v.id("users"),
+      amount: v.number(),
+      createdAt: v.number(),
+    })
+      .index("by_promo", ["promoId"])
+      .index("by_user_promo", ["userId", "promoId"]),
 
     // ---- settings (was public.settings — single row, keyed implicitly) ------
     settings: defineTable({

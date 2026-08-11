@@ -30,6 +30,7 @@ import {
   salaryStatus,
 } from "@/lib/hopex";
 import { GlassCard } from "@/components/hopex/glass";
+import { DashboardPopup } from "@/components/hopex/community";
 
 export default function DashboardPage() {
   const {
@@ -97,6 +98,8 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-5">
+      <DashboardPopup />
+
       <div className="flex items-center gap-3">
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl gradient-brand font-display text-base font-black text-primary-foreground">
           {profile.name[0]}

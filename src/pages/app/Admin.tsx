@@ -118,7 +118,7 @@ const GROUPS: { label: string; items: TabId[] }[] = [
 ];
 
 function AdminConsole() {
-  const { transactions } = useAdminData();
+  const { transactions, threads } = useAdminData();
   const [tab, setTab] = useState<TabId>("Overview");
   const [menuOpen, setMenuOpen] = useState(false);
   const [proof, setProof] = useState<string | null>(null);
@@ -126,10 +126,12 @@ function AdminConsole() {
   const isPending = (s: string) => s === "pending" || s === "processing";
   const pendingDeps = transactions.filter((t) => t.type === "deposit" && isPending(t.status)).length;
   const pendingWds = transactions.filter((t) => t.type === "withdraw" && isPending(t.status)).length;
+  const chatUnread = threads.reduce((a, t) => a + t.unread, 0);
 
   const counts: Partial<Record<TabId, number>> = {
     "Auto Deposit": pendingDeps,
     Withdrawals: pendingWds,
+    "Support Chat": chatUnread,
   };
 
   const navList = (
@@ -158,7 +160,7 @@ function AdminConsole() {
                 <Icon className="h-4 w-4 shrink-0" />
                 <span className="truncate">{t}</span>
                 {counts[t] ? (
-                  <span className="ml-auto rounded-full bg-destructive/15 px-2 py-0.5 text-[10px] font-bold text-destructive">
+                  <span className="ml-auto grid h-5 min-w-5 place-items-center rounded-full bg-destructive px-1.5 text-[10px] font-black text-destructive-foreground">
                     {counts[t]}
                   </span>
                 ) : null}
@@ -2111,18 +2113,21 @@ function ChannelsManager() {
     if (!u) return toast.error("Enter the WhatsApp link");
     setBusy(true);
     try {
-      await upsert({
-        id: (editId as never) ?? undefined,
+      // Omit `id` entirely when creating (matches the payment-method flow).
+      const args = {
+        ...(editId ? { id: editId as never } : {}),
         name: n,
         kind,
         url: u,
         active,
         sortOrder: Number(sortOrder) || 1,
-      });
+      };
+      await upsert(args);
       toast.success(editId ? "Channel updated." : "Channel added.");
       reset();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not save channel");
+      const raw = e instanceof Error ? e.message : String(e);
+      toast.error(raw.replace(/^.*?:\s*/, "").split(" [Request ID")[0] || "Could not save channel");
     } finally {
       setBusy(false);
     }

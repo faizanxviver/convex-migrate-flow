@@ -1,5 +1,6 @@
 import { api } from "@/convex/_generated/api";
 import { GlassCard, SectionTitle } from "@/components/hopex/glass";
+import { CommunityLinks } from "@/components/hopex/community";
 import { useHope } from "@/hooks/use-hope";
 import { depositBalance, money, planDaily, round2, type Plan } from "@/lib/hopex";
 import { useMutation } from "convex/react";
@@ -158,6 +159,8 @@ export default function PlansPage() {
           </GlassCard>
         </div>
       ) : null}
+
+      <CommunityLinks />
     </div>
   );
 }

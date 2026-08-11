@@ -392,11 +392,11 @@ function WelcomePopup({ name, logo }: { name: string; logo?: string }) {
           ) : null}
 
           <Link
-            to={user ? "/dashboard/plans" : "/auth?mode=signup"}
+            to={user ? "/dashboard" : "/auth?mode=signup"}
             onClick={close}
             className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl btn-glass btn-glass-primary text-sm font-black"
           >
-            <Rocket className="h-4 w-4" /> Start investing now
+            <Rocket className="h-4 w-4" /> {user ? "Continue to Dashboard" : "Start investing now"}
           </Link>
           {support ? (
             <a

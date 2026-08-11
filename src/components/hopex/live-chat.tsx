@@ -508,6 +508,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
               </button>
               <textarea
                 rows={1}
+                maxLength={2000}
                 value={text}
                 onChange={(e) => {
                   setText(e.target.value);

@@ -1,11 +1,14 @@
 import { v } from "convex/values";
 import { mutation, query } from "./_generated/server";
-import { logAudit, requireAdmin } from "./helpers";
+import { requireAdmin } from "./helpers";
 
 /**
  * Community channels (WhatsApp groups / channels) surfaced in the landing
  * welcome popup and the in-app "Channels & Groups" menu. Links are managed by
  * admins from the Admin console → Channels tab.
+ *
+ * NOTE: these mutations intentionally avoid logAudit/extra reads — they only
+ * touch the channels table so a failure elsewhere can never break the action.
  */
 
 /** Active channels with a real link, ordered for display. Public. */
@@ -41,13 +44,12 @@ export const adminUpsertChannel = mutation({
     sortOrder: v.number(),
   },
   handler: async (ctx, { id, name, kind, url, active, sortOrder }) => {
-    const admin = await requireAdmin(ctx);
+    await requireAdmin(ctx);
     if (id) {
       await ctx.db.patch(id, { name, kind, url, active, sortOrder });
     } else {
       await ctx.db.insert("channels", { name, kind, url, active, sortOrder, createdAt: Date.now() });
     }
-    await logAudit(ctx, admin, "Saved channel", { detail: name });
     return true;
   },
 });
@@ -56,9 +58,8 @@ export const adminUpsertChannel = mutation({
 export const adminDeleteChannel = mutation({
   args: { id: v.id("channels") },
   handler: async (ctx, { id }) => {
-    const admin = await requireAdmin(ctx);
+    await requireAdmin(ctx);
     await ctx.db.delete(id);
-    await logAudit(ctx, admin, "Deleted channel", { detail: id });
     return true;
   },
 });

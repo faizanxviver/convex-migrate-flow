@@ -12,6 +12,7 @@ import {
   Bell,
   Check,
   CheckCheck,
+  ChevronDown,
   Coins,
   MessagesSquare,
   Mic,
@@ -98,6 +99,8 @@ export function AdminChat() {
   const [uploading, setUploading] = useState(false);
   const [lightbox, setLightbox] = useState<string | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
+  const wallRef = useRef<HTMLDivElement>(null);
+  const [atBottom, setAtBottom] = useState(true);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const list = useMemo(
@@ -221,7 +224,7 @@ export function AdminChat() {
       {/* ---------- Inbox ---------- */}
       <div
         className={cn(
-          "wa flex h-[32rem] flex-col overflow-hidden rounded-2xl sm:h-[34rem]",
+          "wa relative flex h-[32rem] flex-col overflow-hidden rounded-2xl sm:h-[34rem]",
           selected && "hidden lg:flex",
         )}
       >
@@ -358,7 +361,14 @@ export function AdminChat() {
           </button>
         </div>
 
-        <div className="wa-wall flex-1 space-y-1.5 overflow-y-auto px-3 py-4">
+        <div
+          ref={wallRef}
+          onScroll={(e) => {
+            const el = e.currentTarget;
+            setAtBottom(el.scrollHeight - el.scrollTop - el.clientHeight < 80);
+          }}
+          className="wa-wall flex-1 space-y-1.5 overflow-y-auto px-3 py-4"
+        >
           {messages.map((m) => {
             const label = dayLabel(m.createdAt);
             const showDay = label !== lastDay;
@@ -429,6 +439,16 @@ export function AdminChat() {
           <div ref={endRef} />
         </div>
 
+        {!atBottom ? (
+          <button
+            onClick={() => endRef.current?.scrollIntoView({ behavior: "smooth" })}
+            aria-label="Scroll to latest"
+            className="absolute bottom-24 right-4 z-10 grid h-9 w-9 place-items-center rounded-full bg-[var(--wa-in)] shadow-md"
+          >
+            <ChevronDown className="h-4 w-4 wa-dim" />
+          </button>
+        ) : null}
+
         {canned ? (
           <div className="wa-panel space-y-1 px-3 py-2">
             {CANNED.map((c) => (
@@ -475,6 +495,7 @@ export function AdminChat() {
             </button>
             <textarea
               rows={1}
+              maxLength={2000}
               value={text}
               onChange={(e) => {
                 setText(e.target.value);

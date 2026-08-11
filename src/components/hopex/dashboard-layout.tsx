@@ -187,7 +187,9 @@ function NotificationBell() {
 function ChatFab() {
   const { profile, chat } = useHope();
   const { open, setOpen } = useChatUi();
-  const unread = chat.filter((c) => c.sender === "support" && !c.status).length;
+  // Red badge only when a NEW support message is unread — never when the
+  // conversation is just opened/empty. Opening the chat marks them read.
+  const unread = chat.filter((c) => c.sender === "support" && c.status !== "read").length;
   if (!profile || open) return null;
   return (
     <button

@@ -288,6 +288,17 @@ const schema = defineSchema(
       updatedAt: v.number(),
     }),
 
+    // ---- community channels (WhatsApp groups/channels in popups) ---------------
+    channels: defineTable({
+      name: v.string(),
+      kind: v.string(), // "group" | "channel"
+      url: v.string(),
+      active: v.boolean(),
+      sortOrder: v.number(),
+      createdAt: v.number(),
+    })
+      .index("by_active", ["active"]),
+
     // ---- audit log (was public.audit_log) ------------------------------------
     auditLog: defineTable({
       adminId: v.id("users"),

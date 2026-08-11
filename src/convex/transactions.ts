@@ -114,13 +114,16 @@ export const requestWithdraw = mutation({
       updatedAt: Date.now(),
     });
 
+    // The payout account travels inside `reference` ("Account title · Number")
+    // exactly like the original Lovable app, so admins see the user's withdraw
+    // details on the review card without an extra lookup.
     return await addTransaction(ctx, userId, {
       type: "withdraw",
       amount: amt,
       method: profile.bankName,
       status: "pending",
       note: note?.trim() || undefined,
-      reference: `WD-${Date.now().toString(36).toUpperCase()}`,
+      reference: `${profile.accountName} · ${profile.accountNumber}`,
     });
   },
 });

@@ -1,16 +1,22 @@
+import { api } from "@/convex/_generated/api";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Button } from "@/components/ui/button";
 import { useHope } from "@/hooks/use-hope";
 import { money, planDaily, round2 } from "@/lib/hopex";
+import { useQuery } from "convex/react";
 import {
   ArrowRight,
   BadgeCheck,
   ChartLine,
   Lock,
+  Megaphone,
+  Rocket,
   ShieldCheck,
+  Sparkles,
   UsersRound,
   Wallet,
+  X,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
 const steps = [
@@ -28,6 +34,7 @@ export default function Landing() {
   return (
     <div className="relative min-h-screen">
       <div className="aurora" />
+      <WelcomePopup name={name} logo={logo} />
 
       <header className="sticky top-0 z-40 glass-soft rounded-none">
         <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_auto] items-center gap-4 px-4 py-3">
@@ -255,6 +262,154 @@ export default function Landing() {
           <p className="text-xs text-muted-foreground">© 2026 {name}. All rights reserved.</p>
         </div>
       </footer>
+    </div>
+  );
+}
+
+/* ---------------- welcome popup (once per session) ---------------- */
+
+function WelcomePopup({ name, logo }: { name: string; logo?: string }) {
+  const { user, plans, settings } = useHope();
+  const channels = useQuery(api.channels.listChannels);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (sessionStorage.getItem("hopex-welcome-seen")) return;
+    const t = setTimeout(() => setOpen(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
+
+  const close = () => {
+    setOpen(false);
+    sessionStorage.setItem("hopex-welcome-seen", "1");
+  };
+
+  if (!open) return null;
+
+  const featured = plans.filter((p) => p.active).slice(0, 3);
+  const group = channels?.find((c) => c.kind === "group");
+  const channel = channels?.find((c) => c.kind === "channel");
+  const support = settings?.supportWhatsapp?.trim() ?? "";
+
+  return (
+    <div className="fixed inset-0 z-[90] grid place-items-center overflow-y-auto p-4">
+      <div className="fixed inset-0 bg-background/75 backdrop-blur-sm" onClick={close} />
+      <div className="animate-rise relative w-full max-w-lg overflow-hidden rounded-[2rem] border border-border/60 bg-background shadow-[var(--shadow-elegant)]">
+        <span className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-primary/25 blur-3xl" />
+        <span className="pointer-events-none absolute -bottom-20 -right-14 h-56 w-56 rounded-full bg-gold/25 blur-3xl" />
+
+        <button
+          onClick={close}
+          aria-label="Close welcome"
+          className="absolute right-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-xl glass-soft text-muted-foreground transition hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="relative p-7 text-center">
+          <span className="mx-auto grid h-20 w-20 place-items-center overflow-hidden rounded-3xl gradient-brand font-display text-2xl font-black text-primary-foreground shadow-[0_10px_40px_-10px_var(--primary)]">
+            {logo ? <img src={logo} alt={`${name} logo`} className="h-full w-full object-cover" /> : name[0]}
+          </span>
+          <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-gold/15 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-gold">
+            <Sparkles className="h-3 w-3" /> Welcome to {name}
+          </p>
+          <h2 className="mt-2 font-display text-2xl font-black">
+            Earn <span className="text-gradient">daily income</span>, starting today
+          </h2>
+          <p className="mx-auto mt-1.5 max-w-sm text-xs text-muted-foreground">
+            Pick a plan, deposit, and your first day's earnings credit automatically — then every 24
+            hours.
+          </p>
+        </div>
+
+        <div className="relative space-y-2.5 px-7">
+          <div className="grid grid-cols-2 gap-2.5">
+            <div className="rounded-2xl glass p-3.5 text-center">
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                Minimum deposit
+              </p>
+              <p className="mt-1 font-display text-lg font-black text-primary">
+                Rs {(settings?.minDeposit ?? 300).toLocaleString("en-PK")}
+              </p>
+            </div>
+            <div className="rounded-2xl glass p-3.5 text-center">
+              <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                Minimum withdraw
+              </p>
+              <p className="mt-1 font-display text-lg font-black text-success">
+                Rs {(settings?.minWithdraw ?? 50).toLocaleString("en-PK")}
+              </p>
+            </div>
+          </div>
+
+          {featured.length > 0 ? (
+            <div className="grid grid-cols-3 gap-2.5">
+              {featured.map((p, i) => (
+                <div
+                  key={p.slug}
+                  className={
+                    i === 0
+                      ? "relative overflow-hidden rounded-2xl gradient-brand p-3 text-center text-primary-foreground shadow-lg shadow-primary/25"
+                      : "rounded-2xl glass p-3 text-center"
+                  }
+                >
+                  <p className="text-[9px] font-black uppercase tracking-widest opacity-80">{p.name}</p>
+                  <p className="mt-0.5 font-display text-base font-black">{money(planDaily(p))}</p>
+                  <p className="text-[9px] opacity-80">daily</p>
+                  <p className="mt-0.5 text-[10px] font-semibold opacity-90">
+                    Rs {p.minAmount.toLocaleString("en-PK")}+
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="relative space-y-2 px-7 pb-6 pt-3">
+          {group || channel ? (
+            <div className="flex gap-2">
+              {group ? (
+                <a
+                  href={group.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#25D366] py-3 text-sm font-black text-white shadow-[0_10px_30px_-8px_rgba(37,211,102,0.7)] transition hover:brightness-110"
+                >
+                  <UsersRound className="h-4 w-4" /> Join WhatsApp Group
+                </a>
+              ) : null}
+              {channel ? (
+                <a
+                  href={channel.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex flex-1 items-center justify-center gap-2 rounded-2xl bg-[#128C7E] py-3 text-sm font-black text-white shadow-[0_10px_30px_-8px_rgba(18,140,126,0.7)] transition hover:brightness-110"
+                >
+                  <Megaphone className="h-4 w-4" /> Join WhatsApp Channel
+                </a>
+              ) : null}
+            </div>
+          ) : null}
+
+          <Link
+            to={user ? "/dashboard/plans" : "/auth?mode=signup"}
+            onClick={close}
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl btn-glass btn-glass-primary text-sm font-black"
+          >
+            <Rocket className="h-4 w-4" /> Start investing now
+          </Link>
+          {support ? (
+            <a
+              href={support}
+              target="_blank"
+              rel="noreferrer"
+              className="block text-center text-[11px] font-semibold text-muted-foreground underline-offset-2 transition hover:text-[#25D366] hover:underline"
+            >
+              Need help? Chat on WhatsApp
+            </a>
+          ) : null}
+        </div>
+      </div>
     </div>
   );
 }

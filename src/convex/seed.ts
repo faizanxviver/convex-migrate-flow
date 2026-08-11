@@ -8,7 +8,7 @@ export const DEFAULT_SALARY_TIERS = [
   { rank: "Platinum", team: 60, invested: 200000, salary: 25000 },
 ];
 
-export const DEFAULT_QUICK_AMOUNTS = [1000, 3000, 5000, 10000, 25000, 50000];
+export const DEFAULT_QUICK_AMOUNTS = [300, 700, 1000, 3000, 5000, 10000];
 
 const SEED_PLANS = [
   {
@@ -88,6 +88,15 @@ const SEED_PROMOS = [
 ];
 
 /**
+ * Default community channels. URLs are empty so nothing broken shows until an
+ * admin pastes real WhatsApp group/channel links in Admin → Channels.
+ */
+const SEED_CHANNELS = [
+  { name: "HopeX WhatsApp Group", kind: "group", url: "", sortOrder: 1 },
+  { name: "HopeX WhatsApp Channel", kind: "channel", url: "", sortOrder: 2 },
+];
+
+/**
  * imgbb keys pre-loaded into the admin-managed key pool so image uploads work
  * out of the box. The upload action tries pool keys first (least-used first),
  * then falls back to the IMGBB_API_KEY secret. Verified working keys.
@@ -136,8 +145,8 @@ export const seedReferenceData = mutation({
           "investment platform, daily roi, hopex, referral program, pakistan investment",
         ogImage: undefined,
         supportWhatsapp: "",
-        minDeposit: 1000,
-        minWithdraw: 500,
+        minDeposit: 300,
+        minWithdraw: 50,
         levels: [10, 2, 1, 4],
         quickAmounts: DEFAULT_QUICK_AMOUNTS,
         announcementText: "",
@@ -191,6 +200,20 @@ export const seedReferenceData = mutation({
             sortOrder: m.sortOrder,
             createdAt: Date.now(),
             updatedAt: Date.now(),
+          });
+        }
+      }
+    }
+
+    const channels = await ctx.db.query("channels").collect();
+    if (channels.length === 0 || force) {
+      for (const ch of SEED_CHANNELS) {
+        const exists = channels.some((x) => x.name === ch.name);
+        if (!exists) {
+          await ctx.db.insert("channels", {
+            ...ch,
+            active: true,
+            createdAt: Date.now(),
           });
         }
       }

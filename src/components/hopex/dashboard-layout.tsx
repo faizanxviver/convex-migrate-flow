@@ -5,6 +5,7 @@ import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import {
   BellRing,
+  ChevronDown,
   Gem,
   Headset,
   House,
@@ -15,6 +16,7 @@ import {
   Moon,
   ShieldHalf,
   Sun,
+  UserRound,
   UsersRound,
   WalletMinimal,
   X,
@@ -30,6 +32,7 @@ import {
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { initials } from "@/lib/hopex";
+import { ChannelsPopup } from "./channels";
 import { LiveChat } from "./live-chat";
 
 /* ---------------- chat UI state (shared by shell + pages) ---------------- */
@@ -211,6 +214,8 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
   const navigate = useNavigate();
   const pathname = useLocation().pathname;
   const [chatOpen, setChatOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [channelsOpen, setChannelsOpen] = useState(false);
   const { t } = useT(profile?.language ?? "en");
 
   if (!profile || !user) {
@@ -299,13 +304,43 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
                     </button>
                   ) : null}
                   <NotificationBell />
-                  <Link
-                    to="/dashboard/profile"
-                    aria-label="Profile"
-                    className="grid h-10 w-10 place-items-center rounded-xl gradient-brand font-bold text-primary-foreground"
-                  >
-                    {initials(profile.name)}
-                  </Link>
+                  <div className="relative">
+                    <button
+                      onClick={() => setProfileOpen((v) => !v)}
+                      aria-label="Account menu"
+                      className="flex h-10 items-center gap-1 rounded-xl gradient-brand pl-2.5 pr-2 font-bold text-primary-foreground transition hover:brightness-110"
+                    >
+                      {initials(profile.name)}
+                      <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", profileOpen && "rotate-180")} />
+                    </button>
+                    {profileOpen ? (
+                      <>
+                        <div className="fixed inset-0 z-40" onClick={() => setProfileOpen(false)} />
+                        <div className="animate-rise absolute right-0 top-12 z-50 w-60 overflow-hidden rounded-2xl border border-border bg-popover text-popover-foreground shadow-[var(--shadow-elegant)]">
+                          <div className="border-b border-border/60 px-4 py-3">
+                            <p className="truncate text-sm font-bold">{profile.name}</p>
+                            <p className="truncate text-xs text-muted-foreground">{profile.phone || user.email}</p>
+                          </div>
+                          <Link
+                            to="/dashboard/profile"
+                            onClick={() => setProfileOpen(false)}
+                            className="flex items-center gap-2.5 px-4 py-3 text-sm font-semibold transition hover:bg-accent/60"
+                          >
+                            <UserRound className="h-4 w-4 text-muted-foreground" /> My Profile
+                          </Link>
+                          <button
+                            onClick={() => {
+                              setProfileOpen(false);
+                              setChannelsOpen(true);
+                            }}
+                            className="flex w-full items-center gap-2.5 px-4 py-3 text-left text-sm font-semibold transition hover:bg-accent/60"
+                          >
+                            <UsersRound className="h-4 w-4 text-muted-foreground" /> Channels &amp; Groups
+                          </button>
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
                   <button
                     onClick={handleSignOut}
                     aria-label="Sign out"
@@ -326,6 +361,8 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
             <ChatFab />
 
             <LiveChat open={chatOpen} onClose={() => setChatOpen(false)} />
+
+            <ChannelsPopup open={channelsOpen} onClose={() => setChannelsOpen(false)} />
 
             <nav className="fixed inset-x-3 bottom-3 z-40 grid grid-cols-5 gap-1 rounded-3xl glass px-2 py-2 md:hidden">
               {primaryNav.map((l) => {

@@ -8,7 +8,7 @@ import { useAdminData } from "@/hooks/use-admin";
 import { useHope } from "@/hooks/use-hope";
 import { fmtDate, fmtDateTime, initials, money, planDaily, round2 } from "@/lib/hopex";
 import { cn } from "@/lib/utils";
-import { useAction, useMutation } from "convex/react";
+import { useAction, useMutation, useQuery } from "convex/react";
 import {
   Activity,
   ArrowDownToLine,
@@ -29,6 +29,7 @@ import {
   Image as ImageIcon,
   KeyRound,
   LayoutDashboard,
+  Link2,
   Loader2,
   Megaphone,
   Menu,
@@ -47,6 +48,7 @@ import {
   TrendingUp,
   User2,
   Users,
+  UsersRound,
   Wallet,
   Wrench,
   X,
@@ -77,6 +79,7 @@ const TABS = [
   "Leader Plans",
   "Balance Control",
   "Support Chat",
+  "Channels",
   "Broadcast",
   "Audit Log",
   "Tools",
@@ -98,6 +101,7 @@ const TAB_ICONS: Record<TabId, LucideIcon> = {
   "Leader Plans": Crown,
   "Balance Control": Wallet,
   "Support Chat": MessageSquare,
+  Channels: Link2,
   Broadcast: Megaphone,
   "Audit Log": ScrollText,
   Tools: Wrench,
@@ -109,7 +113,7 @@ const TAB_ICONS: Record<TabId, LucideIcon> = {
 const GROUPS: { label: string; items: TabId[] }[] = [
   { label: "Operations", items: ["Overview", "Users", "Support Chat"] },
   { label: "Money flow", items: ["Auto Deposit", "Withdrawals", "Balance Control", "Methods"] },
-  { label: "Growth", items: ["Plans", "Promo Codes", "Leader Plans", "Broadcast"] },
+  { label: "Growth", items: ["Plans", "Promo Codes", "Leader Plans", "Channels", "Broadcast"] },
   { label: "System", items: ["Tools", "SEO", "API Keys", "Audit Log", "Settings"] },
 ];
 
@@ -263,6 +267,7 @@ function AdminConsole() {
           {tab === "Leader Plans" ? <LeaderPlansPanel /> : null}
           {tab === "Balance Control" ? <BalanceControl /> : null}
           {tab === "Support Chat" ? <AdminChat /> : null}
+          {tab === "Channels" ? <ChannelsManager /> : null}
           {tab === "Broadcast" ? <BroadcastPanel /> : null}
           {tab === "Audit Log" ? <AuditLogPanel /> : null}
           {tab === "Tools" ? <ToolsPanel /> : null}
@@ -921,27 +926,22 @@ function MoneyDesk({ kind, onViewProof }: { kind: "deposit" | "withdraw"; onView
 
   const all = useMemo(() => transactions.filter((t) => t.type === kind), [transactions, kind]);
 
-  const counts = {
-    Pending: all.filter((t) => isPending(t.status)).length,
-    Approved: all.filter((t) => isDone(t.status)).length,
-    Rejected: all.filter((t) => t.status === "rejected").length,
-  };
+  const pending = all.filter((t) => isPending(t.status));
+  const done = all.filter((t) => isDone(t.status));
+  const rejected = all.filter((t) => t.status === "rejected");
+
+  const counts = { Pending: pending.length, Approved: done.length, Rejected: rejected.length };
 
   const nameById = useMemo(() => new Map(users.map((u) => [u.userId, u.name])), [users]);
   const phoneById = useMemo(() => new Map(users.map((u) => [u.userId, u.phone ?? ""])), [users]);
 
-  const rows = all
-    .filter((t) =>
-      bucket === "Pending" ? isPending(t.status) : bucket === "Approved" ? isDone(t.status) : t.status === "rejected",
-    )
-    .filter((t) => {
-      if (!q.trim()) return true;
-      const hay = `${nameById.get(t.userId) ?? ""} ${phoneById.get(t.userId) ?? ""} ${t.method ?? ""} ${t.reference ?? ""} ${t.amount}`;
-      return hay.toLowerCase().includes(q.trim().toLowerCase());
-    });
+  const rows = (bucket === "Pending" ? pending : bucket === "Approved" ? done : rejected).filter((t) => {
+    if (!q.trim()) return true;
+    const hay = `${nameById.get(t.userId) ?? ""} ${phoneById.get(t.userId) ?? ""} ${t.method ?? ""} ${t.reference ?? ""} ${t.amount}`;
+    return hay.toLowerCase().includes(q.trim().toLowerCase());
+  });
 
   const total = rows.reduce((a, t) => a + t.amount, 0);
-  const approveStatus = kind === "deposit" ? "approved" : "completed";
 
   const setStatus = async (id: string, approve: boolean) => {
     setBusy(id);
@@ -968,52 +968,80 @@ function MoneyDesk({ kind, onViewProof }: { kind: "deposit" | "withdraw"; onView
     }
   };
 
+  const stats = [
+    {
+      label: "Pending review",
+      value: money(pending.reduce((a, t) => a + t.amount, 0)),
+      count: pending.length,
+      icon: <Clock className="h-4 w-4" />,
+      tone: "text-warning",
+      chip: "bg-warning/15 text-warning",
+    },
+    {
+      label: kind === "deposit" ? "Approved" : "Paid out",
+      value: money(done.reduce((a, t) => a + t.amount, 0)),
+      count: done.length,
+      icon: <CheckCircle2 className="h-4 w-4" />,
+      tone: "text-success",
+      chip: "bg-success/15 text-success",
+    },
+    {
+      label: "Declined",
+      value: money(rejected.reduce((a, t) => a + t.amount, 0)),
+      count: rejected.length,
+      icon: <XCircle className="h-4 w-4" />,
+      tone: "text-destructive",
+      chip: "bg-destructive/15 text-destructive",
+    },
+  ];
+
   return (
     <div className="space-y-4">
-      <GlassCard className="relative overflow-hidden">
-        <div className="pointer-events-none absolute -right-14 -top-14 h-44 w-44 rounded-full bg-primary/25 blur-3xl" />
-        <div className="relative flex flex-wrap items-center gap-4">
-          <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-primary-foreground", kind === "deposit" ? "gradient-cool" : "gradient-brand")}>
-            {kind === "deposit" ? <ArrowDownToLine className="h-5 w-5" /> : <ArrowUpFromLine className="h-5 w-5" />}
-          </span>
-          <div className="min-w-0 flex-1">
-            <h2 className="font-display text-xl font-extrabold">{kind === "deposit" ? "Auto Deposit — MPay" : "Withdrawals"}</h2>
-            <p className="text-xs text-muted-foreground">
-              {rows.length} {bucket.toLowerCase()} · {money(total)} in view
-            </p>
+      <div className="grid gap-3 sm:grid-cols-3">
+        {stats.map((s) => (
+          <div key={s.label} className="relative overflow-hidden rounded-[1.75rem] glass p-4">
+            <span className={cn("pointer-events-none absolute -right-8 -top-10 h-24 w-24 rounded-full blur-2xl", s.chip)} />
+            <div className="relative flex items-start justify-between gap-2">
+              <p className="text-[10px] font-black uppercase tracking-[0.18em] text-muted-foreground">{s.label}</p>
+              <span className={cn("grid h-8 w-8 shrink-0 place-items-center rounded-xl", s.chip)}>{s.icon}</span>
+            </div>
+            <p className={cn("relative mt-2 truncate font-display text-xl font-black sm:text-2xl", s.tone)}>{s.value}</p>
+            <p className="relative mt-1 text-[11px] text-muted-foreground">{s.count} request{s.count === 1 ? "" : "s"}</p>
           </div>
-          <label className="flex h-11 min-w-[12rem] flex-1 items-center gap-2 rounded-2xl border border-border/60 bg-background/40 px-3">
-            <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <input
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-              placeholder="Search user, phone, reference…"
-              className="w-full bg-transparent text-sm outline-none"
-            />
-          </label>
-        </div>
-      </GlassCard>
-
-      <div className="flex flex-wrap gap-2">
-        {(["Pending", "Approved", "Rejected"] as const).map((b) => (
-          <button
-            key={b}
-            onClick={() => {
-              setBucket(b);
-              setSelected([]);
-            }}
-            className={cn(
-              "rounded-2xl px-4 py-2.5 text-sm font-bold transition",
-              bucket === b
-                ? b === "Pending"
-                  ? "bg-destructive text-destructive-foreground shadow-[var(--shadow-elegant)]"
-                  : "btn-glass btn-glass-primary shadow-[var(--shadow-elegant)]"
-                : "glass-soft text-muted-foreground",
-            )}
-          >
-            {b === "Pending" ? "Pending" : b === "Approved" ? "Successful" : "Declined"} ({counts[b]})
-          </button>
         ))}
+      </div>
+
+      <div className="flex flex-col gap-3 rounded-[1.75rem] glass p-3 sm:flex-row sm:items-center">
+        <div className="flex flex-wrap gap-2">
+          {(["Pending", "Approved", "Rejected"] as const).map((b) => (
+            <button
+              key={b}
+              onClick={() => {
+                setBucket(b);
+                setSelected([]);
+              }}
+              className={cn(
+                "rounded-xl px-4 py-2.5 text-xs font-black transition",
+                bucket === b
+                  ? b === "Pending"
+                    ? "bg-destructive text-destructive-foreground shadow-[var(--shadow-elegant)]"
+                    : "btn-glass btn-glass-primary shadow-[var(--shadow-elegant)]"
+                  : "glass-soft text-muted-foreground",
+              )}
+            >
+              {b === "Pending" ? "Pending" : b === "Approved" ? "Successful" : "Declined"} ({counts[b]})
+            </button>
+          ))}
+        </div>
+        <label className="flex h-11 min-w-[14rem] flex-1 items-center gap-2 rounded-2xl border border-border/60 bg-background/40 px-3">
+          <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Search user, phone, reference…"
+            className="w-full bg-transparent text-sm outline-none"
+          />
+        </label>
       </div>
 
       {bucket === "Pending" && rows.length > 0 ? (
@@ -1098,79 +1126,99 @@ function MoneyCard({
   const parts = (tx.reference ?? "").split("·").map((p: string) => p.trim()).filter(Boolean);
   const accountName = kind === "withdraw" ? parts[0] : undefined;
   const accountNumber = kind === "withdraw" ? parts[1] : undefined;
+  const note = tx.note?.trim() ?? "";
 
   return (
-    <GlassCard className={cn("relative overflow-hidden", checked && "ring-2 ring-primary/60")}>
-      <div className="flex items-start gap-3">
-        {selectable ? (
-          <input type="checkbox" aria-label="Select row" checked={checked} onChange={onToggle} className="mt-1.5 h-4 w-4 shrink-0 accent-[var(--primary)]" />
-        ) : null}
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary/15 text-primary">
-          <User2 className="h-5 w-5" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-bold">{name}</p>
-          <p className="truncate font-mono text-xs text-muted-foreground">{phone || "—"}</p>
-        </div>
-        <div className="shrink-0 text-right">
-          <p className="font-display text-lg font-black tabular-nums">{money(tx.amount)}</p>
-          <StatusBadge status={tx.status} />
-        </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
-        <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 font-bold">
-          <Wallet className="h-3 w-3" /> {tx.method || "—"}
-        </span>
-        {(tx.note ?? "").toLowerCase().includes("mpay") ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 font-black text-success">MPay</span>
-        ) : null}
-        <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-muted-foreground">
-          <Hash className="h-3 w-3" /> {fmtDateTime(tx.createdAt)}
-        </span>
-      </div>
-
-      <div className="mt-3 grid gap-2 sm:grid-cols-2">
-        {kind === "withdraw" ? (
-          <>
-            <CopyChip label="Account title" value={accountName || name} />
-            <CopyChip label="Account number" value={accountNumber || tx.reference || "—"} />
-          </>
-        ) : (
-          <CopyChip label="Reference" value={tx.reference || "—"} />
+    <GlassCard className={cn("relative overflow-hidden transition", checked && "ring-2 ring-primary/60")}>
+      <span
+        className={cn(
+          "pointer-events-none absolute inset-y-0 left-0 w-1",
+          tx.status === "rejected" ? "bg-destructive/50" : isPending(tx.status) ? "bg-warning/50" : "bg-success/50",
         )}
-      </div>
-
-      {tx.proofUrl ? (
-        <button
-          onClick={() => tx.proofUrl && onViewProof(tx.proofUrl)}
-          className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-border/60 bg-background/40 p-2 text-left transition hover:border-primary/50"
-        >
-          <img src={tx.proofUrl} alt="Payment proof" loading="lazy" className="h-12 w-12 rounded-xl object-cover" />
-          <span className="flex items-center gap-1 text-xs font-bold text-primary">
-            <ImageIcon className="h-3.5 w-3.5" /> View payment proof
+      />
+      <div className="pl-2">
+        <div className="flex items-start gap-3">
+          {selectable ? (
+            <input type="checkbox" aria-label="Select row" checked={checked} onChange={onToggle} className="mt-1.5 h-4 w-4 shrink-0 accent-[var(--primary)]" />
+          ) : null}
+          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl gradient-brand font-display text-sm font-black text-primary-foreground">
+            {initials(name)}
           </span>
-        </button>
-      ) : null}
-
-      {isPending(tx.status) ? (
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button
-            onClick={onApprove}
-            disabled={busy}
-            className="rounded-xl bg-success/15 py-2.5 text-xs font-black text-success transition hover:bg-success/25 disabled:opacity-50"
-          >
-            Approve
-          </button>
-          <button
-            onClick={onReject}
-            disabled={busy}
-            className="rounded-xl bg-destructive/15 py-2.5 text-xs font-black text-destructive transition hover:bg-destructive/25 disabled:opacity-50"
-          >
-            Decline
-          </button>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-bold">{name}</p>
+            <p className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+              <Phone className="h-3 w-3 shrink-0" /> {phone || "—"}
+            </p>
+          </div>
+          <div className="shrink-0 text-right">
+            <p className="font-display text-lg font-black tabular-nums">{money(tx.amount)}</p>
+            <StatusBadge status={tx.status} />
+          </div>
         </div>
-      ) : null}
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]">
+          <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 font-bold">
+            <Wallet className="h-3 w-3" /> {tx.method || (kind === "deposit" ? "MPay" : "Wallet")}
+          </span>
+          {(note + " " + (tx.reference ?? "")).toLowerCase().includes("mpay") || kind === "deposit" ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2.5 py-1 font-black text-success">MPay</span>
+          ) : null}
+          <span className="inline-flex items-center gap-1 rounded-full bg-accent px-2.5 py-1 text-muted-foreground">
+            <Hash className="h-3 w-3" /> {fmtDateTime(tx.createdAt)}
+          </span>
+        </div>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {kind === "withdraw" ? (
+            <>
+              <CopyChip label="Account title" value={accountName || "—"} />
+              <CopyChip label="Account number" value={accountNumber || "—"} />
+            </>
+          ) : (
+            <CopyChip label="Reference" value={tx.reference || "—"} />
+          )}
+        </div>
+
+        {note ? (
+          <p className="mt-3 rounded-2xl bg-background/40 px-3.5 py-2.5 text-xs text-muted-foreground ring-1 ring-border/50">
+            <span className="font-bold text-foreground">Note: </span>
+            {note}
+          </p>
+        ) : null}
+
+        {tx.proofUrl ? (
+          <button
+            onClick={() => tx.proofUrl && onViewProof(tx.proofUrl)}
+            className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-border/60 bg-background/40 p-2 text-left transition hover:border-primary/50"
+          >
+            <img src={tx.proofUrl} alt="Payment proof" loading="lazy" className="h-12 w-12 rounded-xl object-cover" />
+            <span className="flex items-center gap-1 text-xs font-bold text-primary">
+              <ImageIcon className="h-3.5 w-3.5" /> View payment proof
+            </span>
+          </button>
+        ) : null}
+
+        {isPending(tx.status) ? (
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              onClick={onApprove}
+              disabled={busy}
+              className="flex items-center justify-center gap-1.5 rounded-xl bg-success/15 py-2.5 text-xs font-black text-success transition hover:bg-success/25 disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+              Approve
+            </button>
+            <button
+              onClick={onReject}
+              disabled={busy}
+              className="flex items-center justify-center gap-1.5 rounded-xl bg-destructive/15 py-2.5 text-xs font-black text-destructive transition hover:bg-destructive/25 disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <X className="h-3.5 w-3.5" />}
+              Decline
+            </button>
+          </div>
+        ) : null}
+      </div>
     </GlassCard>
   );
 }
@@ -2033,6 +2081,198 @@ function SupportChatPanel() {
   );
 }
 
+/* ============================== channels ============================== */
+
+function ChannelsManager() {
+  const channels = useQuery(api.channels.adminListChannels) ?? [];
+  const upsert = useMutation(api.channels.adminUpsertChannel);
+  const remove = useMutation(api.channels.adminDeleteChannel);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [kind, setKind] = useState<"group" | "channel">("group");
+  const [url, setUrl] = useState("");
+  const [active, setActive] = useState(true);
+  const [sortOrder, setSortOrder] = useState(1);
+  const [busy, setBusy] = useState(false);
+
+  const reset = () => {
+    setEditId(null);
+    setName("");
+    setKind("group");
+    setUrl("");
+    setActive(true);
+    setSortOrder(channels.length + 1);
+  };
+
+  const save = async () => {
+    const n = name.trim();
+    const u = url.trim();
+    if (!n) return toast.error("Enter a name");
+    if (!u) return toast.error("Enter the WhatsApp link");
+    setBusy(true);
+    try {
+      await upsert({
+        id: (editId as never) ?? undefined,
+        name: n,
+        kind,
+        url: u,
+        active,
+        sortOrder: Number(sortOrder) || 1,
+      });
+      toast.success(editId ? "Channel updated." : "Channel added.");
+      reset();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not save channel");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const del = async (id: string, nm: string) => {
+    if (!confirm(`Delete "${nm}"?`)) return;
+    try {
+      await remove({ id: id as never });
+      toast.success("Channel deleted.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not delete");
+    }
+  };
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[1fr_1.3fr]">
+      <GlassCard className="h-fit space-y-4">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-lg font-bold">{editId ? "Edit channel" : "Add channel"}</h2>
+          {editId ? (
+            <button onClick={reset} className="text-xs font-semibold text-muted-foreground hover:text-foreground">
+              Cancel edit
+            </button>
+          ) : null}
+        </div>
+        <p className="text-xs text-muted-foreground">
+          These links power the landing welcome popup and the in-app "Channels &amp; Groups" menu.
+        </p>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Name</label>
+          <input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="HopeX WhatsApp Group"
+            className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Type</label>
+          <div className="grid grid-cols-2 gap-2">
+            {(["group", "channel"] as const).map((k) => (
+              <button
+                key={k}
+                onClick={() => setKind(k)}
+                className={cn(
+                  "flex h-12 items-center justify-center gap-2 rounded-xl text-sm font-bold capitalize transition",
+                  kind === k ? "btn-glass btn-glass-primary" : "glass-soft text-muted-foreground",
+                )}
+              >
+                {k === "group" ? <UsersRound className="h-4 w-4" /> : <Megaphone className="h-4 w-4" />}
+                {k}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">WhatsApp link (URL)</label>
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://chat.whatsapp.com/… or https://whatsapp.com/channel/…"
+            className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 font-mono text-xs outline-none"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Sort order</label>
+            <input
+              type="number"
+              value={sortOrder}
+              onChange={(e) => setSortOrder(Number(e.target.value) || 1)}
+              className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+            />
+          </div>
+          <div className="flex items-end">
+            <label className="flex h-12 w-full cursor-pointer items-center gap-2 rounded-xl glass-soft px-4 text-sm font-semibold">
+              <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} className="h-4 w-4 accent-[var(--primary)]" />
+              Active
+            </label>
+          </div>
+        </div>
+        <button
+          onClick={() => void save()}
+          disabled={busy}
+          className="flex h-12 w-full items-center justify-center gap-2 rounded-xl gradient-brand text-sm font-black text-primary-foreground disabled:opacity-50"
+        >
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+          {editId ? "Save changes" : "Add channel"}
+        </button>
+      </GlassCard>
+
+      <div className="space-y-2.5">
+        {channels.length === 0 ? (
+          <GlassCard className="p-10 text-center text-sm text-muted-foreground">
+            No channels yet — add your first WhatsApp group or channel.
+          </GlassCard>
+        ) : (
+          channels.map((c) => (
+            <GlassCard key={c._id} className="flex flex-wrap items-center gap-3">
+              <span
+                className={cn(
+                  "grid h-11 w-11 shrink-0 place-items-center rounded-2xl text-white",
+                  c.kind === "channel" ? "bg-[#25D366]" : "bg-[#128C7E]",
+                )}
+              >
+                {c.kind === "channel" ? <Megaphone className="h-5 w-5" /> : <UsersRound className="h-5 w-5" />}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-bold">
+                  {c.name}
+                  {!c.active ? <span className="ml-2 rounded-full bg-muted px-2 py-0.5 text-[10px] font-bold text-muted-foreground">hidden</span> : null}
+                </p>
+                <p className="truncate font-mono text-[11px] text-muted-foreground">{c.url || "no link yet"}</p>
+              </div>
+              <span className="rounded-full bg-accent px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-muted-foreground">
+                {c.kind}
+              </span>
+              <span className="rounded-full bg-muted px-2.5 py-1 text-[10px] font-bold text-muted-foreground">#{c.sortOrder}</span>
+              <div className="flex gap-1.5">
+                <button
+                  onClick={() => {
+                    setEditId(c._id);
+                    setName(c.name);
+                    setKind(c.kind === "channel" ? "channel" : "group");
+                    setUrl(c.url);
+                    setActive(c.active);
+                    setSortOrder(c.sortOrder);
+                  }}
+                  className="grid h-9 w-9 place-items-center rounded-xl glass-soft text-muted-foreground transition hover:text-primary"
+                  aria-label={`Edit ${c.name}`}
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={() => void del(c._id, c.name)}
+                  className="grid h-9 w-9 place-items-center rounded-xl glass-soft text-muted-foreground transition hover:text-destructive"
+                  aria-label={`Delete ${c.name}`}
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
+              </div>
+            </GlassCard>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
 /* ============================== broadcast ============================== */
 
 function BroadcastPanel() {
@@ -2716,7 +2956,7 @@ function SettingsPanel() {
       </div>
 
       <div>
-        <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Quick deposit amounts (comma separated)</label>
+        <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Quick amounts — deposit & withdraw (comma separated)</label>
         <input
           defaultValue={(settings?.quickAmounts ?? []).join(", ")}
           onBlur={(e) =>
@@ -2730,6 +2970,17 @@ function SettingsPanel() {
       </div>
 
       <div>
+
+      <div>
+        <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">WhatsApp support link</label>
+        <input
+          defaultValue={settings?.supportWhatsapp ?? ""}
+          onBlur={(e) => e.target.value !== (settings?.supportWhatsapp ?? "") && void set("supportWhatsapp", e.target.value)}
+          placeholder="https://wa.me/923000000000"
+          className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+        />
+      </div>
+
         <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Referral commission levels (%)</label>
         <div className="grid grid-cols-4 gap-2">
           {(settings?.levels ?? []).map((lv, i) => (

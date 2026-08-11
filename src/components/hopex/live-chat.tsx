@@ -10,17 +10,16 @@ import {
   Check,
   CheckCheck,
   ChevronDown,
-  FileText,
   Image as ImageIcon,
+  Loader2,
+  MessageCircle,
   Mic,
   Paperclip,
-  Phone,
   Reply,
   Search,
   Send,
   Smile,
   Trash2,
-  Video,
   X,
   MoreVertical,
 } from "lucide-react";
@@ -72,9 +71,12 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
   const [lightbox, setLightbox] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [preview, setPreview] = useState<{ url: string; file: File } | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const atBottomRef = useRef(true);
 
   const messages = query.trim()
     ? chat.filter((m) => m.text.toLowerCase().includes(query.trim().toLowerCase()))
@@ -82,8 +84,16 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
   const agentOnline = true;
 
   useEffect(() => {
-    if (open) endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, open]);
+    atBottomRef.current = atBottom;
+  }, [atBottom]);
+
+  /* Auto-scroll on new messages only when the user is already near the bottom,
+     so reading older history is never yanked away (WhatsApp behaviour). */
+  useEffect(() => {
+    if (open && (atBottomRef.current || chat.length === 0)) {
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages.length, open, chat.length]);
 
   const { peerTyping, notifyTyping } = useTyping(profile?.userId ?? null, "user");
 
@@ -113,24 +123,33 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
     setReplyTo(null);
     try {
       await send({ text: body, attachment, replyTo: reply });
+      endRef.current?.scrollIntoView({ behavior: "smooth" });
     } catch (e) {
-      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not send message");
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\\s*/, "") : "Could not send message");
     } finally {
       setBusy(false);
     }
   }
 
-  const sendImage = async (file: File) => {
+  /** Pick an image and show a preview first — nothing is uploaded until Send. */
+  const pickImage = (file: File) => {
     if (!file.type.startsWith("image/")) return toast.error("Only images can be shared.");
     if (file.size > 8 * 1024 * 1024) return toast.error("Image must be under 8MB.");
     setAttach(false);
+    setPreview({ url: URL.createObjectURL(file), file });
+  };
+
+  const confirmSendImage = async () => {
+    if (!preview) return;
     setUploading(true);
     try {
-      const url = await upload(file);
-      await doSend("", { name: file.name, kind: "image", url });
+      const url = await upload(preview.file);
+      await doSend("", { name: preview.file.name, kind: "image", url });
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Upload failed. Try again.");
     } finally {
+      URL.revokeObjectURL(preview.url);
+      setPreview(null);
       setUploading(false);
     }
   };
@@ -139,6 +158,17 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
     setMenu(false);
     if (!confirm("Clear this conversation?")) return;
     void clearChat({}).then(() => toast.success("Conversation cleared."));
+  };
+
+  /** WhatsApp-style tap-to-copy on a message bubble. */
+  const copyMsg = async (m: (typeof chat)[number]) => {
+    if (!m.text) return;
+    try {
+      await navigator.clipboard.writeText(m.text);
+      toast.success("Message copied");
+    } catch {
+      /* clipboard unavailable — ignore */
+    }
   };
 
   let lastDay = "";
@@ -162,12 +192,6 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
               {peerTyping ? "typing…" : agentOnline ? "online" : "typically replies in minutes"}
             </p>
           </div>
-          <button aria-label="Video call" className="shrink-0 opacity-90">
-            <Video className="h-[18px] w-[18px]" />
-          </button>
-          <button aria-label="Voice call" className="shrink-0 opacity-90">
-            <Phone className="h-[17px] w-[17px]" />
-          </button>
           <div className="relative shrink-0">
             <button aria-label="Chat menu" onClick={() => setMenu((m) => !m)} className="opacity-90">
               <MoreVertical className="h-[18px] w-[18px]" />
@@ -239,6 +263,19 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
             🔒 Messages are private between you and support
           </p>
 
+          {chat.length === 0 ? (
+            <div className="flex flex-col items-center gap-3 px-6 py-10 text-center">
+              <span className="grid h-16 w-16 place-items-center rounded-full bg-[var(--wa-green)]/15 text-[var(--wa-green)]">
+                <MessageCircle className="h-7 w-7" />
+              </span>
+              <p className="text-sm font-semibold">Hello! 👋 How can we help?</p>
+              <p className="max-w-[15rem] text-xs wa-dim">
+                This is your private chat with HopeX Support — ask about deposits, withdrawals,
+                plans or referrals.
+              </p>
+            </div>
+          ) : null}
+
           {messages.map((m) => {
             const label = dayLabel(m.createdAt);
             const showDay = label !== lastDay;
@@ -262,9 +299,12 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
                     </button>
                   ) : null}
                   <div
+                    onClick={() => void copyMsg(m)}
+                    title={m.text ? "Click to copy" : undefined}
                     className={cn(
                       "wa-bubble",
                       mine ? "wa-out wa-bubble-out" : "wa-in wa-bubble-in",
+                      m.text && "cursor-pointer",
                     )}
                   >
                     {m.replyTo ? (
@@ -324,7 +364,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
           {uploading ? (
             <div className="flex justify-end">
               <div className="wa-bubble wa-out wa-bubble-out text-xs opacity-70">
-                Uploading image…
+                Uploading image… {busy ? "" : ""}
               </div>
             </div>
           ) : null}
@@ -373,15 +413,14 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
 
         {/* ---------- Attachment sheet ---------- */}
         {attach ? (
-          <div className="wa-panel grid grid-cols-3 gap-2 px-4 py-3">
+          <div className="wa-panel grid grid-cols-2 gap-2 px-4 py-3">
             {[
-              { label: "Document", icon: FileText, tone: "#5157ae" },
-              { label: "Gallery", icon: ImageIcon, tone: "#bf59cf" },
-              { label: "Camera", icon: Camera, tone: "#d3396d" },
+              { label: "Gallery", icon: ImageIcon, tone: "#bf59cf", ref: fileRef },
+              { label: "Camera", icon: Camera, tone: "#d3396d", ref: cameraRef },
             ].map((a) => (
               <button
                 key={a.label}
-                onClick={() => fileRef.current?.click()}
+                onClick={() => a.ref.current?.click()}
                 className="flex flex-col items-center gap-1.5 text-[11px] wa-dim"
               >
                 <span
@@ -393,6 +432,39 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
                 {a.label}
               </button>
             ))}
+          </div>
+        ) : null}
+
+        {/* ---------- Image preview before send ---------- */}
+        {preview ? (
+          <div className="wa-panel flex items-center gap-3 px-3 py-2">
+            <img
+              src={preview.url}
+              alt="Preview"
+              className="h-14 w-14 shrink-0 rounded-xl object-cover ring-1 ring-white/20"
+            />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-xs font-semibold">{preview.file.name}</p>
+              <p className="text-[11px] wa-dim">{(preview.file.size / 1024 / 1024).toFixed(1)} MB · image</p>
+            </div>
+            <button
+              onClick={() => {
+                URL.revokeObjectURL(preview.url);
+                setPreview(null);
+              }}
+              aria-label="Cancel image"
+              className="shrink-0 wa-dim"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => void confirmSendImage()}
+              disabled={uploading}
+              aria-label="Send image"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-[var(--wa-teal-2)] text-white disabled:opacity-60"
+            >
+              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+            </button>
           </div>
         ) : null}
 
@@ -461,7 +533,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
                 <Paperclip className="h-[21px] w-[21px] -rotate-45" />
               </button>
               <button
-                onClick={() => fileRef.current?.click()}
+                onClick={() => cameraRef.current?.click()}
                 aria-label="Camera"
                 className="pb-1.5 wa-dim"
               >
@@ -475,7 +547,19 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
                 onChange={(e) => {
                   const f = e.target.files?.[0];
                   e.target.value = "";
-                  if (f) void sendImage(f);
+                  if (f) pickImage(f);
+                }}
+              />
+              <input
+                ref={cameraRef}
+                type="file"
+                className="hidden"
+                accept="image/*"
+                capture="environment"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (f) pickImage(f);
                 }}
               />
             </div>

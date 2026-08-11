@@ -163,6 +163,17 @@ export function AdminChat() {
     void send("", { name: "Voice message", kind: "audio", url, duration: secs });
   });
 
+  /** WhatsApp-style tap-to-copy on a message bubble. */
+  const copyMsg = async (m: (typeof messages)[number]) => {
+    if (!m.text) return;
+    try {
+      await navigator.clipboard.writeText(m.text);
+      toast.success("Message copied");
+    } catch {
+      /* clipboard unavailable — ignore */
+    }
+  };
+
   const sendImage = async (file: File) => {
     if (!file.type.startsWith("image/")) return toast.error("Only images can be shared.");
     if (file.size > 8 * 1024 * 1024) return toast.error("Image must be under 8MB.");
@@ -362,9 +373,12 @@ export function AdminChat() {
                 ) : null}
                 <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
                   <div
+                    onClick={() => void copyMsg(m)}
+                    title={m.text && m.text !== m.attachment?.name ? "Click to copy" : undefined}
                     className={cn(
                       "wa-bubble",
                       mine ? "wa-out wa-bubble-out" : "wa-in wa-bubble-in",
+                      m.text && m.text !== m.attachment?.name && "cursor-pointer",
                     )}
                   >
                     {m.replyTo ? (

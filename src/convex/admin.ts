@@ -45,6 +45,9 @@ export const adminListUsers = query({
       invested: p.invested,
       earnings: p.earnings,
       referralEarnings: p.referralEarnings,
+      bankName: p.bankName,
+      accountName: p.accountName,
+      accountNumber: p.accountNumber,
       createdAt: p.createdAt,
     }));
   },
@@ -58,8 +61,11 @@ export const adminUpdateUser = mutation({
     verified: v.optional(v.boolean()),
     kyc: v.optional(kycStatusValidator),
     role: v.optional(v.union(v.literal(ROLES.ADMIN), v.literal(ROLES.USER))),
+    bankName: v.optional(v.string()),
+    accountName: v.optional(v.string()),
+    accountNumber: v.optional(v.string()),
   },
-  handler: async (ctx, { userId, name, blocked, verified, kyc, role }) => {
+  handler: async (ctx, { userId, name, blocked, verified, kyc, role, bankName, accountName, accountNumber }) => {
     const admin = await requireAdmin(ctx);
     const profile = await getProfileByUserId(ctx, userId);
     if (!profile) throw new Error("User not found");
@@ -73,6 +79,9 @@ export const adminUpdateUser = mutation({
     if (verified !== undefined) await ctx.db.patch(profile._id, { verified, updatedAt: now });
     if (kyc !== undefined) await ctx.db.patch(profile._id, { kyc, updatedAt: now });
     if (role !== undefined) await ctx.db.patch(userId, { role });
+    if (bankName !== undefined) await ctx.db.patch(profile._id, { bankName, updatedAt: now });
+    if (accountName !== undefined) await ctx.db.patch(profile._id, { accountName, updatedAt: now });
+    if (accountNumber !== undefined) await ctx.db.patch(profile._id, { accountNumber, updatedAt: now });
 
     await logAudit(ctx, admin, "Updated user", {
       targetId: userId,

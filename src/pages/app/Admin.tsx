@@ -2,6 +2,7 @@ import { api } from "@/convex/_generated/api";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { GlassCard, StatCard, StatusBadge } from "@/components/hopex/glass";
 import { PromoManager } from "@/components/hopex/promo-manager";
+import { AdminChat } from "@/components/hopex/admin-chat";
 import { useUploader } from "@/components/hopex/storage-image";
 import { useAdminData } from "@/hooks/use-admin";
 import { useHope } from "@/hooks/use-hope";
@@ -261,7 +262,7 @@ function AdminConsole() {
           {tab === "Promo Codes" ? <PromoManager /> : null}
           {tab === "Leader Plans" ? <LeaderPlansPanel /> : null}
           {tab === "Balance Control" ? <BalanceControl /> : null}
-          {tab === "Support Chat" ? <SupportChatPanel /> : null}
+          {tab === "Support Chat" ? <AdminChat /> : null}
           {tab === "Broadcast" ? <BroadcastPanel /> : null}
           {tab === "Audit Log" ? <AuditLogPanel /> : null}
           {tab === "Tools" ? <ToolsPanel /> : null}

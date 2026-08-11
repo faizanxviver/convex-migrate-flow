@@ -73,13 +73,65 @@ export const adminThreads = query({
         name: nameById.get(userId) ?? "User",
         messages: msgs,
         lastAt: msgs[msgs.length - 1]?.createdAt ?? 0,
-        unread: msgs.filter((m) => m.sender === "user" && !m.status).length,
+        // A user message is unread until the admin opens the thread (status -> "read").
+        unread: msgs.filter((m) => m.sender === "user" && m.status !== "read").length,
       }))
       .sort((a, b) => b.lastAt - a.lastAt);
   },
 });
 
 /** Admin: reply to a user's thread as support. */
+/** User: mark every support message in my thread as read (blue double-tick). */
+export const markUserRead = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUser(ctx);
+    const rows = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_user_created", (q) => q.eq("userId", userId))
+      .collect();
+    const now = Date.now();
+    for (const m of rows) {
+      if (m.sender === "support" && m.status !== "read") {
+        await ctx.db.patch(m._id, { status: "read" });
+      }
+    }
+    return rows.filter((m) => m.sender === "support").length;
+  },
+});
+
+/** Admin: mark every user message in a thread as read (clears the inbox badge). */
+export const markAdminRead = mutation({
+  args: { userId: v.id("users") },
+  handler: async (ctx, { userId }) => {
+    await requireAdmin(ctx);
+    const rows = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_user_created", (q) => q.eq("userId", userId))
+      .collect();
+    for (const m of rows) {
+      if (m.sender === "user" && m.status !== "read") {
+        await ctx.db.patch(m._id, { status: "read" });
+      }
+    }
+    return rows.filter((m) => m.sender === "user").length;
+  },
+});
+
+/** User: permanently delete my own support thread ("Clear chat"). */
+export const clearMyChat = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const userId = await requireUser(ctx);
+    const rows = await ctx.db
+      .query("chatMessages")
+      .withIndex("by_user_created", (q) => q.eq("userId", userId))
+      .collect();
+    for (const m of rows) await ctx.db.delete(m._id);
+    return rows.length;
+  },
+});
+
 export const adminReply = mutation({
   args: {
     userId: v.id("users"),

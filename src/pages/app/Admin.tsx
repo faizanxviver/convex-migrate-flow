@@ -2347,7 +2347,9 @@ function BroadcastPanel() {
   const [body, setBody] = useState("");
   const [image, setImage] = useState("");
   const [target, setTarget] = useState("all");
+  const [pushPhones, setPushPhones] = useState(true);
   const [busy, setBusy] = useState(false);
+  const sendPush = useAction(api.pushNode.adminSendPush);
 
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -2362,7 +2364,16 @@ function BroadcastPanel() {
         userIds,
         popup: true,
       });
-      toast.success(`Sent to ${n} user(s).`);
+      let pushInfo = "";
+      if (pushPhones) {
+        try {
+          const devices = await sendPush({ title: title.trim(), body: body.trim() });
+          pushInfo = ` + ${devices} phone push`;
+        } catch (e) {
+          pushInfo = " (push failed: " + (e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "no keys") + ")";
+        }
+      }
+      toast.success(`Sent to ${n} user(s)${pushInfo}.`);
       setTitle("");
       setBody("");
       setImage("");
@@ -2406,6 +2417,20 @@ function BroadcastPanel() {
           rows={4}
           className="w-full rounded-xl border border-input bg-background/40 p-4 text-sm outline-none"
         />
+        <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl glass-soft px-4 py-3">
+          <span className="min-w-0">
+            <span className="block text-sm font-semibold">Phone push notification</span>
+            <span className="block text-[11px] text-muted-foreground">
+              User ke phone par bhi jaye — app band ho to bhi (VAPID keys zaroori)
+            </span>
+          </span>
+          <input
+            type="checkbox"
+            checked={pushPhones}
+            onChange={(e) => setPushPhones(e.target.checked)}
+            className="h-5 w-5 accent-[var(--primary)]"
+          />
+        </label>
         <button disabled={busy} className="h-12 w-full rounded-xl gradient-brand font-semibold text-primary-foreground disabled:opacity-60">
           {busy ? "Sending…" : "Send notification"}
         </button>

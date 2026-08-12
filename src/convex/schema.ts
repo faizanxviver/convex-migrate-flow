@@ -209,6 +209,17 @@ const schema = defineSchema(
       .index("by_status", ["status"])
       .index("by_type_status", ["type", "status"]),
 
+    // ---- push subscriptions (web push, for phone notifications) ------------
+    pushSubscriptions: defineTable({
+      userId: v.id("users"),
+      endpoint: v.string(),
+      p256dh: v.string(),
+      auth: v.string(),
+      createdAt: v.number(),
+    })
+      .index("by_user", ["userId"])
+      .index("by_endpoint", ["endpoint"]),
+
     // ---- notifications (was public.notifications) ---------------------------
     notifications: defineTable({
       userId: v.id("users"),

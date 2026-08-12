@@ -1,6 +1,7 @@
 import { api } from "@/convex/_generated/api";
 import { useMutation } from "convex/react";
 import {
+  BellRing,
   Coins,
   Crown,
   Gem,
@@ -18,6 +19,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { useHope } from "@/hooks/use-hope";
+import { usePush } from "@/hooks/use-push";
 import { useT } from "@/lib/i18n";
 import {
   activeInvestments,
@@ -44,6 +46,7 @@ export default function DashboardPage() {
   } = useHope();
   const claimEarnings = useMutation(api.investments.claimEarnings);
   const claimSalary = useMutation(api.rewards.claimSalary);
+  const push = usePush();
   const { t } = useT(profile?.language ?? "en");
   const [tick, setTick] = useState(() => Date.now());
   const [claiming, setClaiming] = useState(false);
@@ -99,6 +102,8 @@ export default function DashboardPage() {
   return (
     <div className="space-y-5">
       <DashboardPopup />
+
+      <PushCard push={push} />
 
       <div className="flex items-center gap-3">
         <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl gradient-brand font-display text-base font-black text-primary-foreground">
@@ -292,5 +297,50 @@ export default function DashboardPage() {
         <TicketPercent className="h-4 w-4" /> {t("All transactions")}
       </Link>
     </div>
+  );
+}
+
+/** Notification permission card — asks once, hidden once enabled/denied. */
+function PushCard({ push }: { push: ReturnType<typeof usePush> }) {
+  const [busy, setBusy] = useState(false);
+  if (push.permission === "granted" || push.enabled) return null;
+  if (push.permission === "denied") {
+    return (
+      <GlassCard className="flex items-center gap-3 p-4">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-warning/20 text-warning">
+          <BellRing className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold">Notifications are off</p>
+          <p className="text-xs text-muted-foreground">
+            Enable them in your browser settings to get instant alerts on your phone.
+          </p>
+        </div>
+      </GlassCard>
+    );
+  }
+  return (
+    <GlassCard className="flex items-center gap-3 p-4">
+      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
+        <BellRing className="h-5 w-5" />
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold">Get notifications on your phone</p>
+        <p className="text-xs text-muted-foreground">
+          Deposit updates, payouts and announcements — even when the app is closed.
+        </p>
+      </div>
+      <button
+        onClick={async () => {
+          setBusy(true);
+          await push.enable();
+          setBusy(false);
+        }}
+        disabled={busy}
+        className="btn-glass btn-glass-primary shrink-0 px-4 py-2 text-xs font-black disabled:opacity-60"
+      >
+        {busy ? "…" : "Allow"}
+      </button>
+    </GlassCard>
   );
 }

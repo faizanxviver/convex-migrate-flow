@@ -144,6 +144,7 @@ export const seedReferenceData = mutation({
         seoKeywords:
           "investment platform, daily roi, hopex, referral program, pakistan investment",
         ogImage: undefined,
+        appDownloadUrl: undefined,
         supportWhatsapp: "",
         minDeposit: 300,
         minWithdraw: 50,

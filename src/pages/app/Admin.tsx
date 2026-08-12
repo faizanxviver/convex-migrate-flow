@@ -2797,6 +2797,18 @@ function SeoSettings() {
               className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
             />
           </div>
+          <div className="sm:col-span-3">
+            <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">App download link (APK)</label>
+            <input
+              defaultValue={s?.appDownloadUrl ?? ""}
+              placeholder="https://your-site.com/HopeX.apk"
+              onBlur={(e) => e.target.value !== (s?.appDownloadUrl ?? "") && void set("appDownloadUrl", e.target.value)}
+              className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Jab user "Install app" par click kare to yahan diya APK download ho. Khali chhoro to native install prompt use hoga.
+            </p>
+          </div>
           <div>
             <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Withdraw opens (PKT hour)</label>
             <input

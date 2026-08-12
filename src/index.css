@@ -463,6 +463,26 @@
 .animate-msg {
   animation: wa-pop 0.18s ease-out;
 }
+/* Push-style notification slides in from the top like a phone notification. */
+@keyframes notif-in {
+  from {
+    opacity: 0;
+    transform: translateY(-18px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.notif-slide {
+  animation: notif-in 0.32s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .notif-slide {
+    animation: none;
+  }
+}
+
 /* Chat panel slides + fades in like opening the WhatsApp app. */
 @keyframes wa-chat-in {
   from {

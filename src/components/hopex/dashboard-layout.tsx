@@ -125,8 +125,8 @@ const seenPopupIds = new Set<string>();
 
 /**
  * Watch for notifications the admin flagged `popup: true` (broadcasts, direct
- * messages) and show them as a full branded popup — logo, title and message —
- * the moment they arrive. Once per session, so old ones don't re-pop.
+ * messages) and surface them as a push-style notification that slides in from
+ * the TOP of the screen — like a phone notification. Once per session.
  */
 function PopupNotifier() {
   const { notifications, settings } = useHope();
@@ -142,12 +142,14 @@ function PopupNotifier() {
     }
   }, [notifications]);
 
-  // Show one at a time.
+  // Show one at a time, auto-dismiss after 6s.
   useEffect(() => {
     if (current || queue.length === 0) return;
     const next = queue[0];
     setCurrent(next);
     setQueue((q) => q.slice(1));
+    const t = setTimeout(() => setCurrent(null), 6000);
+    return () => clearTimeout(t);
   }, [current, queue]);
 
   if (!current) return null;
@@ -166,50 +168,32 @@ function PopupNotifier() {
     current.kind === "success" ? "✓" : current.kind === "warning" ? "!" : current.kind === "danger" ? "✕" : "✦";
 
   return (
-    <div className="fixed inset-0 z-[95] grid place-items-center overflow-y-auto p-4">
-      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setCurrent(null)} />
-      <div className="animate-rise relative w-full max-w-md overflow-hidden rounded-[2rem] border border-border/60 bg-background shadow-[var(--shadow-elegant)]">
-        <span className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-primary/25 blur-3xl" />
-        <span className="pointer-events-none absolute -bottom-20 -right-14 h-56 w-56 rounded-full bg-gold/25 blur-3xl" />
-
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-[100] flex justify-center px-3 pt-3">
+      <div className="notif-slide pointer-events-auto relative w-full max-w-md overflow-hidden rounded-2xl border border-border/60 bg-background/95 shadow-[var(--shadow-elegant)] backdrop-blur-xl">
+        <span className="pointer-events-none absolute -left-10 -top-10 h-32 w-32 rounded-full bg-primary/15 blur-2xl" />
         <button
           onClick={() => setCurrent(null)}
           aria-label="Close"
-          className="absolute right-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-xl glass-soft text-muted-foreground transition hover:text-foreground"
+          className="absolute right-2.5 top-2.5 z-10 grid h-8 w-8 place-items-center rounded-xl text-muted-foreground transition hover:bg-accent hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>
-
-        <div className="relative p-7 text-center">
+        <div className="relative flex items-start gap-3 p-4 pr-11">
           {current.image ? (
-            <span className="mx-auto block h-24 w-24 overflow-hidden rounded-3xl ring-1 ring-border/60">
-              <img src={current.image} alt="" className="h-full w-full object-cover" />
-            </span>
+            <img src={current.image} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover ring-1 ring-border/60" />
           ) : (
-            <span className="mx-auto grid h-20 w-20 place-items-center overflow-hidden rounded-3xl gradient-brand font-display text-2xl font-black text-primary-foreground shadow-[0_10px_40px_-10px_var(--primary)]">
+            <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl gradient-brand font-display text-lg font-black text-primary-foreground">
               {logo ? <img src={logo} alt={`${name} logo`} className="h-full w-full object-cover" /> : name[0]}
             </span>
           )}
-          <span className={`mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${kindTone}`}>
-            {kindIcon} {name} announcement
-          </span>
-          <h2 className="mt-2 font-display text-2xl font-black">{current.title}</h2>
-          <p className="mx-auto mt-2 max-w-sm whitespace-pre-line text-sm text-muted-foreground">{current.body}</p>
-        </div>
-
-        <div className="relative flex gap-2 px-7 pb-6 pt-2">
-          <button
-            onClick={() => window.dispatchEvent(new CustomEvent("hopex:open-notifications"))}
-            className="btn-glass flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl text-sm font-black text-foreground"
-          >
-            View all notifications
-          </button>
-          <button
-            onClick={() => setCurrent(null)}
-            className="btn-glass btn-glass-primary flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl text-sm font-black"
-          >
-            Got it
-          </button>
+          <div className="min-w-0 flex-1">
+            <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
+              <span className={`inline-grid h-4 w-4 place-items-center rounded-full ${kindTone}`}>{kindIcon}</span>
+              {name}
+            </p>
+            <p className="mt-0.5 truncate text-sm font-bold">{current.title}</p>
+            <p className="mt-0.5 line-clamp-2 whitespace-pre-line text-xs text-muted-foreground">{current.body}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -220,80 +204,71 @@ function PopupNotifier() {
 
 function InstallBanner() {
   const { canInstall, install, installed, checked } = useInstallPrompt();
+  const { settings } = useHope();
   const [dismissed, setDismissed] = useState(false);
-  const [how, setHow] = useState(false);
+  const [busy, setBusy] = useState(false);
+  // Auto-hide after 10s so it never gets in the way.
+  useEffect(() => {
+    const t = setTimeout(() => setDismissed(true), 10000);
+    return () => clearTimeout(t);
+  }, []);
   if (installed || dismissed || !checked) return null;
+
+  const apkUrl = settings?.appDownloadUrl?.trim();
+
+  const doInstall = async () => {
+    if (apkUrl) {
+      // Direct APK download — the small file downloads and the phone offers
+      // to install it.
+      const a = document.createElement("a");
+      a.href = apkUrl;
+      a.download = "";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setDismissed(true);
+      return;
+    }
+    setBusy(true);
+    try {
+      const ok = await install();
+      if (ok) setDismissed(true);
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
-    <>
-      <div className="mx-auto mt-3 flex max-w-7xl items-center gap-3 overflow-hidden rounded-2xl glass px-4 py-2.5">
-        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl gradient-brand font-display text-sm font-black text-primary-foreground">
-          H
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold">Install the HopeX app</p>
-          <p className="truncate text-[11px] text-muted-foreground">
-            One tap — deposits open outside the app, payments stay secure.
-          </p>
-        </div>
-        {canInstall ? (
-          <button
-            onClick={() => void install()}
-            className="shrink-0 rounded-xl btn-glass btn-glass-primary px-3 py-2 text-xs font-black"
-          >
-            Install
-          </button>
-        ) : (
-          <button
-            onClick={() => setHow(true)}
-            className="shrink-0 rounded-xl btn-glass btn-glass-primary px-3 py-2 text-xs font-black"
-          >
-            How to install
-          </button>
-        )}
+    <div className="notif-slide pointer-events-none fixed inset-x-0 top-0 z-[99] flex justify-center px-3 pt-3">
+      <div className="pointer-events-auto relative w-full max-w-md overflow-hidden rounded-2xl border border-border/60 bg-background/95 shadow-[var(--shadow-elegant)] backdrop-blur-xl">
+        <span className="pointer-events-none absolute -left-10 -top-10 h-32 w-32 rounded-full bg-success/15 blur-2xl" />
         <button
           onClick={() => setDismissed(true)}
-          aria-label="Dismiss"
-          className="shrink-0 text-muted-foreground transition hover:text-foreground"
+          aria-label="Close"
+          className="absolute right-2.5 top-2.5 z-10 grid h-8 w-8 place-items-center rounded-xl text-muted-foreground transition hover:bg-accent hover:text-foreground"
         >
           <X className="h-4 w-4" />
         </button>
-      </div>
-      {how ? (
-        <div className="fixed inset-0 z-[95] grid place-items-center p-4">
-          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setHow(false)} />
-          <div className="animate-rise relative w-full max-w-sm rounded-3xl border border-border/60 bg-background p-6 shadow-[var(--shadow-elegant)]">
-            <button
-              onClick={() => setHow(false)}
-              aria-label="Close"
-              className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-xl glass-soft text-muted-foreground transition hover:text-foreground"
-            >
-              <X className="h-4 w-4" />
-            </button>
-            <p className="font-display text-lg font-black">Install the HopeX app</p>
-            <ol className="mt-4 space-y-3 text-sm text-muted-foreground">
-              <li className="flex gap-2.5">
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-primary/12 text-xs font-black text-primary">1</span>
-                Open this website in <b className="text-foreground">Chrome or Edge</b> (not the builder preview).
-              </li>
-              <li className="flex gap-2.5">
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-primary/12 text-xs font-black text-primary">2</span>
-                Tap the browser menu <b className="text-foreground">⋮</b> (top right).
-              </li>
-              <li className="flex gap-2.5">
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-primary/12 text-xs font-black text-primary">3</span>
-                Choose <b className="text-foreground">"Install app"</b> or <b className="text-foreground">"Add to Home screen"</b>.
-              </li>
-            </ol>
-            <button
-              onClick={() => setHow(false)}
-              className="btn-glass btn-glass-primary mt-5 flex h-11 w-full items-center justify-center text-sm font-black"
-            >
-              Got it
-            </button>
+        <div className="relative flex items-center gap-3 p-4 pr-11">
+          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl gradient-brand font-display text-lg font-black text-primary-foreground shadow-lg shadow-primary/25">
+            H
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-bold">Install the HopeX app</p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              {apkUrl ? "Download the app — deposits open outside, payments stay secure." : "One tap — deposits open outside the app, payments stay secure."}
+            </p>
           </div>
+          <button
+            onClick={() => void doInstall()}
+            disabled={busy}
+            className="shrink-0 rounded-xl btn-glass btn-glass-primary px-3.5 py-2 text-xs font-black disabled:opacity-60"
+          >
+            {busy ? "…" : apkUrl ? "Download" : "Install"}
+          </button>
         </div>
-      ) : null}
-    </>
+      </div>
+    </div>
   );
 }
 

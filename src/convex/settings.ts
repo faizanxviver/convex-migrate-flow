@@ -13,6 +13,7 @@ export const getPublicSettings = query({
       siteLogo: settings.siteLogo,
       siteFavicon: settings.siteFavicon,
       ogImage: settings.ogImage,
+      appDownloadUrl: settings.appDownloadUrl,
       seoDescription: settings.seoDescription,
       seoKeywords: settings.seoKeywords,
       supportWhatsapp: settings.supportWhatsapp,

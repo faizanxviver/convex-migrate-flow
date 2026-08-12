@@ -91,6 +91,7 @@ const settingsFields = {
   seoDescription: v.string(),
   seoKeywords: v.string(),
   ogImage: v.optional(v.string()),
+  appDownloadUrl: v.optional(v.string()),
   supportWhatsapp: v.string(),
   minDeposit: v.number(),
   minWithdraw: v.number(),

@@ -12,13 +12,18 @@ export type Settings = Doc<"settings">;
 
 export const DAY_MS = 86400000;
 
-/** Every amount in HopeX is Pakistani Rupees. */
-export const money = (n: number) =>
-  "Rs " +
-  Number(n || 0).toLocaleString("en-PK", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
+/** Every amount in HopeX is Pakistani Rupees. Whole amounts show without
+ *  decimals (Rs 1,000 not Rs 1,000.00) so nothing gets cut off on mobile. */
+export const money = (n: number) => {
+  const v = Number(n || 0);
+  return (
+    "Rs " +
+    v.toLocaleString("en-PK", {
+      minimumFractionDigits: Number.isInteger(v) ? 0 : 2,
+      maximumFractionDigits: 2,
+    })
+  );
+};
 
 export const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
 

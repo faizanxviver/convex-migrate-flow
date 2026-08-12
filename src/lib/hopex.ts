@@ -22,9 +22,11 @@ export const money = (n: number) =>
 
 export const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
 
-/** Exact daily income of a plan (price × daily %), rounded to paisa. */
-export const planDaily = (p: { minAmount: number; dailyRoi: number }) =>
-  round2((p.minAmount * p.dailyRoi) / 100);
+/** Exact daily income of a plan. Prefers the admin-set dailyAmount so the
+ *  figure shown never drifts from what the admin entered; falls back to
+ *  price × daily % (rounded) for older rows. */
+export const planDaily = (p: { minAmount: number; dailyRoi: number; dailyAmount?: number }) =>
+  p.dailyAmount !== undefined ? round2(p.dailyAmount) : round2((p.minAmount * p.dailyRoi) / 100);
 
 /** Exact daily income of an active investment, rounded to paisa. */
 export const investmentDaily = (i: { amount: number; dailyRoi: number }) =>

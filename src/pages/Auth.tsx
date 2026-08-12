@@ -121,17 +121,17 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
       <div className="aurora" />
       <div className="w-full max-w-md">
         <div className="mb-6 flex items-center justify-between">
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/auth" className="flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-xl gradient-brand font-display text-sm font-black text-primary-foreground">
               H
             </span>
             <span className="font-display text-lg font-extrabold">HopeX</span>
           </Link>
           <Link
-            to="/"
+            to={mode === "signup" ? "/auth?mode=login" : "/auth?mode=signup"}
             className="flex items-center gap-1 text-sm text-muted-foreground transition hover:text-foreground"
           >
-            ← Home
+            {mode === "signup" ? "Sign in instead" : "Create account"}
           </Link>
         </div>
 

@@ -4,15 +4,15 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { DashboardLayout } from "@/components/hopex/dashboard-layout";
 import { SiteHead } from "@/components/hopex/site-head";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
+import { useAuth } from "@/hooks/use-auth";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
 import React, { StrictMode, useEffect, lazy, Suspense } from "react";
 import { createRoot } from "react-dom/client";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router";
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router";
 import "./index.css";
 
 // Lazy load route components for better code splitting
-const Landing = lazy(() => import("./pages/Landing.tsx"));
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 
@@ -102,6 +102,20 @@ const convex = new ConvexReactClient(import.meta.env.VITE_CONVEX_URL as string);
 
 
 
+/** The public home page was removed — guests go to sign-in, members straight
+ *  to the dashboard. After sign-up the auth page already navigates here. */
+function HomeRedirect() {
+  const { isLoading, isAuthenticated } = useAuth();
+  if (isLoading) {
+    return (
+      <div className="grid min-h-screen place-items-center">
+        <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+  return <Navigate to={isAuthenticated ? "/dashboard" : "/auth?mode=login"} replace />;
+}
+
 function RouteSyncer() {
   const location = useLocation();
   useEffect(() => {
@@ -138,7 +152,7 @@ createRoot(document.getElementById("root")!).render(
           <RouteSyncer />
           <Suspense fallback={<RouteLoading />}>
             <Routes>
-              <Route path="/" element={<Landing />} />
+              <Route path="/" element={<HomeRedirect />} />
               <Route
                 path="/auth"
                 element={<AuthPage redirectAfterAuth="/dashboard" />}

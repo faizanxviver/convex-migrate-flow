@@ -32,19 +32,25 @@ export default function DepositPage() {
     setBusy(true);
     setConnecting(true);
     // Open a blank tab synchronously inside the click gesture so popup
-    // blockers never redirect us to the same tab. We only point it at MPay
-    // once the backend session is ready. IMPORTANT: do NOT pass "noopener"
+    // blockers never redirect us to the same tab. We immediately paint a
+    // branded "Jumping to gateway…" loading page into it (same-origin blank
+    // tabs accept document.write), so the user never sees a white flash —
+    // the tab is loading the instant it opens, then we point it at MPay as
+    // soon as the backend session is ready. IMPORTANT: do NOT pass "noopener"
     // here — with noopener, window.open() returns null and we lose the
     // reference, so the tab stays blank forever. We detach the opener
     // ourselves right before navigating instead.
     const tab = window.open("", "_blank");
+    tab?.document.open();
+    tab?.document.write(gatewayBootPage());
+    tab?.document.close();
     try {
       // Tell the backend where the user actually is, so the gateway's
       // "return to site" link points at this website (never at a Convex API
       // domain). The gateway itself only ever needs the token.
       const session = await createSession({ amount: value, siteUrl: window.location.origin });
       // Keep the connecting screen visible for a moment, then send the tab to MPay.
-      await new Promise((r) => setTimeout(r, 1200));
+      await new Promise((r) => setTimeout(r, 700));
       setConnecting(false);
       setBusy(false);
       if (tab && !tab.closed) {
@@ -197,18 +203,18 @@ export default function DepositPage() {
 
 function ConnectingOverlay({ amount }: { amount: number }) {
   return (
-    <div className="fixed inset-0 z-[120] grid place-items-center bg-background/80 p-6 backdrop-blur-xl">
-      <div className="animate-rise w-full max-w-sm rounded-[2rem] border border-border/50 bg-background/50 p-8 text-center shadow-[var(--shadow-elegant)] backdrop-blur-2xl">
+    <div className="fixed inset-0 z-[120] grid place-items-center bg-background/85 p-6 backdrop-blur-xl">
+      <div className="animate-rise w-full max-w-sm rounded-[2rem] border border-border/50 bg-background/60 p-8 text-center shadow-[var(--shadow-elegant)] backdrop-blur-2xl">
         <div className="relative mx-auto grid h-24 w-24 place-items-center">
           <span className="absolute inset-0 animate-ping rounded-full bg-primary/20" />
           <span className="relative grid h-20 w-20 place-items-center rounded-3xl gradient-brand text-primary-foreground">
             <Loader2 className="h-9 w-9 animate-spin [animation-duration:0.5s]" />
           </span>
         </div>
-        <h2 className="mt-6 font-display text-2xl font-black">Connecting to MPay</h2>
+        <h2 className="mt-6 font-display text-2xl font-black">Jumping to gateway…</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Securing your session{amount ? ` for ${money(amount)}` : ""} — redirecting to the payment
-          gateway…
+          Preparing your secure session{amount ? ` for ${money(amount)}` : ""}. You'll be redirected
+          to MPay in a moment — the payment page is already loading in the new tab.
         </p>
         <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-muted">
           <div className="h-full w-1/3 animate-[scroll_0.7s_linear_infinite] rounded-full gradient-cool" />
@@ -219,4 +225,19 @@ function ConnectingOverlay({ amount }: { amount: number }) {
       </div>
     </div>
   );
+}
+
+/** Instant branded loading page painted into the new tab so it's never blank. */
+function gatewayBootPage() {
+  const brand = "#0b1220";
+  const green = "#10b981";
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>html,body{height:100%;margin:0;background:${brand};color:#e5e7eb;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px}
+.spin{width:52px;height:52px;border-radius:50%;border:4px solid rgba(16,185,129,.18);border-top-color:${green};animation:rot .8s linear infinite}
+@keyframes rot{to{transform:rotate(360deg)}}
+h1{font-size:19px;font-weight:700;margin:0;letter-spacing:.2px}
+p{font-size:13px;color:#9ca3af;margin:0;max-width:320px;line-height:1.5}
+.pill{margin-top:6px;font-size:11px;color:#34d399;border:1px solid rgba(52,211,153,.4);border-radius:999px;padding:6px 14px;letter-spacing:.4px;text-transform:uppercase;font-weight:600}
+</style></head><body><div class="wrap"><div class="spin"></div><h1>Jumping to gateway…</h1><p>Securing your payment session. You'll be redirected automatically — please keep this tab open.</p><span class="pill">Encrypted MPay session</span></div></body></html>`;
 }

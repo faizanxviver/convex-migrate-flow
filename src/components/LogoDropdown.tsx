@@ -27,7 +27,7 @@ export function LogoDropdown() {
   };
 
   const handleGoHome = () => {
-    navigate("/");
+    navigate("/dashboard");
   };
 
   return (
@@ -46,7 +46,7 @@ export function LogoDropdown() {
       <DropdownMenuContent align="start" className="w-48">
         <DropdownMenuItem onClick={handleGoHome} className="cursor-pointer">
           <Home className="mr-2 h-4 w-4" />
-          Landing Page
+          Dashboard
         </DropdownMenuItem>
         {isAuthenticated && (
           <>

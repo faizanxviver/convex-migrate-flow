@@ -19,14 +19,19 @@ import { useEffect, useState, Fragment } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 
+/** Full weekly countdown: 6d 04h 12m 05s */
 function countdown(ms: number) {
   const total = Math.max(0, Math.floor(ms / 1000));
   const d = Math.floor(total / 86400);
   const h = Math.floor((total % 86400) / 3600);
   const m = Math.floor((total % 3600) / 60);
-  if (d > 0) return `${d}d ${h}h`;
-  if (h > 0) return `${h}h ${m}m`;
-  return `${m}m`;
+  const s = total % 60;
+  const parts: string[] = [];
+  if (d > 0) parts.push(`${d}d`);
+  parts.push(`${h}h`);
+  parts.push(`${m}m`);
+  parts.push(`${s}s`);
+  return parts.join(" ");
 }
 
 export default function SalaryPage() {
@@ -36,7 +41,7 @@ export default function SalaryPage() {
   const [tick, setTick] = useState(() => Date.now());
 
   useEffect(() => {
-    const i = setInterval(() => setTick(Date.now()), 30000);
+    const i = setInterval(() => setTick(Date.now()), 1000);
     return () => clearInterval(i);
   }, []);
 
@@ -54,7 +59,7 @@ export default function SalaryPage() {
       const amount = await claimSalary();
       toast.success(`Salary credited — ${money(amount)}`);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message.replace(/^.*?:\\s*/, "") : "Could not claim salary");
+      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not claim salary");
     } finally {
       setBusy(false);
     }
@@ -66,7 +71,7 @@ export default function SalaryPage() {
     <div className="space-y-5 pb-20">
       <SectionTitle
         title="Weekly rank salary"
-        subtitle="Your rank depends only on the total investment of your level 1 team. Claim every 7 days."
+        subtitle="Your rank depends only on your level 1 team's total investment — the more your direct team invests, the bigger your weekly salary."
       />
 
       {/* ---------- Hero ---------- */}
@@ -91,8 +96,17 @@ export default function SalaryPage() {
             <p className="pb-1.5 text-sm font-semibold text-muted-foreground">your weekly salary</p>
           </div>
 
+          {/* L1 investment → salary mapping */}
+          <div className="mt-4 inline-flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl glass-soft px-4 py-2.5 text-sm">
+            <Target className="h-4 w-4 text-primary" />
+            <span className="text-muted-foreground">L1 team invested</span>
+            <span className="font-black tabular-nums">{money(s.invested)}</span>
+            <span className="text-muted-foreground">→</span>
+            <span className="font-black text-gold">{money(s.current?.salary ?? 0)}/week</span>
+          </div>
+
           {/* Cycle progress */}
-          <div className="mt-6">
+          <div className="mt-5">
             <div className="flex items-center justify-between text-xs">
               <span className="font-semibold text-muted-foreground">Salary cycle</span>
               <span className="font-black tabular-nums">{cyclePct}%</span>
@@ -227,7 +241,7 @@ export default function SalaryPage() {
           </div>
           <p className="mt-2 text-[11px] text-muted-foreground">
             Still needed: <span className="font-bold text-foreground">{money(Math.max(0, s.next.invested - s.invested))}</span>{" "}
-            to unlock {money(s.next.salary)}/week
+            of L1 investment to unlock {money(s.next.salary)}/week
           </p>
         </GlassCard>
       ) : null}
@@ -293,7 +307,7 @@ export default function SalaryPage() {
 
                   <button
                     onClick={() => void claim()}
-                    disabled={!canClaim && (!reached || !isCurrent) || busy}
+                    disabled={(!canClaim && (!reached || !isCurrent)) || busy}
                     className={cn(
                       "btn-glass mt-3 flex h-11 w-full items-center justify-center gap-2 text-xs font-black",
                       canClaim ? "btn-glass-primary" : "text-muted-foreground disabled:opacity-60",

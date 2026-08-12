@@ -1523,6 +1523,7 @@ function PlansManager() {
         minAmount: v.price,
         maxAmount: v.price,
         dailyRoi: round2((v.daily / v.price) * 100),
+        dailyAmount: round2(v.daily),
         durationDays: v.days,
         features: ["Daily payouts", "Principal returned"],
         active: true,

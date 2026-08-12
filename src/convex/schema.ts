@@ -166,6 +166,7 @@ const schema = defineSchema(
       minAmount: v.number(),
       maxAmount: v.number(),
       dailyRoi: v.number(), // percent
+      dailyAmount: v.optional(v.number()), // exact daily income set by admin
       durationDays: v.number(),
       features: v.array(v.string()),
       active: v.boolean(),

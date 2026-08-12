@@ -188,7 +188,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
   let lastDay = "";
 
   return (
-    <div className="wa fixed inset-0 z-[80] flex flex-col bg-[var(--wa-panel)]">
+    <div className="wa-chat-open wa fixed inset-0 z-[80] flex flex-col bg-[var(--wa-panel)]">
       {/* ---------- Header ---------- */}
       <div className="wa-header flex h-16 shrink-0 items-center gap-2 px-2 sm:gap-3 sm:px-4">
         <button onClick={onClose} aria-label="Back" className="grid h-11 w-11 shrink-0 place-items-center rounded-full transition hover:bg-black/10">

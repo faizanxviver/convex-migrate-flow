@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useMutation } from "convex/react";
 import {
   ArrowUpFromLine,
+  BadgeCheck,
   CheckCircle2,
   Clock4,
   Info,
@@ -25,6 +26,40 @@ const REVIEW_MS = 5 * 60 * 1000;
 function clock(ms: number) {
   const s = Math.max(0, Math.floor(ms / 1000));
   return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+}
+
+/** Animated circular countdown — WhatsApp-style "reviewing" timer. */
+function ReviewRing({ left, total }: { left: number; total: number }) {
+  const r = 56;
+  const c = 2 * Math.PI * r;
+  const pct = Math.max(0, Math.min(1, left / total));
+  return (
+    <div className="relative mx-auto grid h-40 w-40 place-items-center">
+      <svg viewBox="0 0 128 128" className="h-40 w-40 -rotate-90">
+        <circle cx="64" cy="64" r={r} fill="none" stroke="currentColor" strokeWidth="9" className="text-border/60" />
+        <circle
+          cx="64"
+          cy="64"
+          r={r}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="9"
+          strokeLinecap="round"
+          strokeDasharray={c}
+          strokeDashoffset={c * (1 - pct)}
+          className="text-primary transition-all duration-1000 ease-linear"
+        />
+      </svg>
+      <div className="absolute inset-0 grid place-items-center">
+        <div className="text-center">
+          <p className="font-display text-4xl font-black tabular-nums">{clock(left)}</p>
+          <p className="mt-0.5 flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+            <Timer className="h-3 w-3" /> Reviewing
+          </p>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function WithdrawPage() {
@@ -87,29 +122,42 @@ export default function WithdrawPage() {
       <div className="space-y-5 pb-24">
         <SectionTitle
           title="Withdrawal under review"
-          subtitle="Our payouts team is verifying your request."
+          subtitle="Our payouts team is verifying your request — usually under 5 minutes."
         />
-        <GlassCard className="mx-auto max-w-lg text-center" glow>
-          <span className="mx-auto grid h-16 w-16 place-items-center rounded-2xl gradient-cool text-primary-foreground">
-            <Timer className="h-7 w-7" />
-          </span>
-          <p className="mt-5 font-display text-4xl font-black tabular-nums">
-            {left > 0 ? clock(left) : "Reviewing…"}
-          </p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {money(pending.amount)} · {pending.method}
-          </p>
-          <div className="mt-5 rounded-2xl glass-soft p-4 text-left text-sm">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground">Payout account</p>
-            <p className="mt-1 font-semibold">{profile.bankName} · {profile.accountName}</p>
-            <p className="font-mono text-xs text-muted-foreground">{profile.accountNumber}</p>
+        <GlassCard className="relative mx-auto max-w-lg overflow-hidden text-center" glow>
+          <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-primary/15 blur-3xl" />
+          <div className="pointer-events-none absolute -bottom-20 -left-16 h-52 w-52 rounded-full bg-gold/15 blur-3xl" />
+          <div className="relative p-6 sm:p-8">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/15 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-primary">
+              <BadgeCheck className="h-3.5 w-3.5" /> Request received
+            </span>
+
+            <div className="mt-6">
+              <ReviewRing left={left} total={REVIEW_MS} />
+            </div>
+
+            <p className="mt-4 text-sm font-semibold">
+              {money(pending.amount)} <span className="text-muted-foreground">· {pending.method}</span>
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {left > 0
+                ? "The countdown is running — you don't need to do anything."
+                : "Still verifying — we'll credit your balance if anything goes wrong."}
+            </p>
+
+            <div className="mt-6 rounded-2xl glass-soft p-4 text-left text-sm">
+              <p className="text-xs uppercase tracking-widest text-muted-foreground">Payout account</p>
+              <p className="mt-1 font-semibold">{profile.bankName} · {profile.accountName}</p>
+              <p className="font-mono text-xs text-muted-foreground">{profile.accountNumber}</p>
+            </div>
+
+            <Link
+              to="/dashboard/withdraw-history"
+              className="btn-glass mt-6 flex h-12 items-center justify-center text-sm font-semibold text-foreground"
+            >
+              Withdraw history
+            </Link>
           </div>
-          <Link
-            to="/dashboard/withdraw-history"
-            className="btn-glass mt-5 flex h-12 items-center justify-center text-sm font-semibold text-foreground"
-          >
-            Withdraw history
-          </Link>
         </GlassCard>
       </div>
     );

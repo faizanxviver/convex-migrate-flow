@@ -11,8 +11,8 @@ export default function NotFound() {
           The page you're looking for doesn't exist or has been moved.
         </p>
         <div className="mt-6 flex gap-3">
-          <Link to="/" className="btn-glass btn-glass-primary flex h-11 items-center px-6 text-sm font-bold">
-            Back to home
+          <Link to="/auth?mode=login" className="btn-glass btn-glass-primary flex h-11 items-center px-6 text-sm font-bold">
+            Sign in
           </Link>
           <Link to="/dashboard" className="btn-glass flex h-11 items-center px-6 text-sm font-bold text-foreground">
             Dashboard

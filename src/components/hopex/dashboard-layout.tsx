@@ -1,6 +1,7 @@
 import { api } from "@/convex/_generated/api";
 import { useAuth } from "@/hooks/use-auth";
 import { useHope, useTheme } from "@/hooks/use-hope";
+import { useInstallPrompt } from "@/hooks/use-install";
 import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import {
@@ -117,6 +118,69 @@ function AnnouncementBanner() {
   );
 }
 
+/* ---------------- popup notifications (broadcast-style) ---------------- */
+
+const seenPopupIds = new Set<string>();
+
+/**
+ * Watch for notifications the admin flagged `popup: true` (broadcasts, direct
+ * messages) and surface them as a prominent toast the moment they arrive —
+ * once per session, so returning to the dashboard doesn't re-toast old ones.
+ */
+function PopupNotifier() {
+  const { notifications } = useHope();
+  useEffect(() => {
+    for (const n of notifications) {
+      if (!n.popup || n.read || seenPopupIds.has(n._id)) continue;
+      seenPopupIds.add(n._id);
+      toast(n.title, {
+        description: n.body,
+        duration: 6000,
+        icon: <span className="grid h-8 w-8 place-items-center rounded-xl gradient-brand font-display text-xs font-black text-primary-foreground">H</span>,
+        action: {
+          label: "View",
+          onClick: () => window.dispatchEvent(new CustomEvent("hopex:open-notifications")),
+        },
+      });
+    }
+  }, [notifications]);
+  return null;
+}
+
+/* ---------------- PWA install banner ---------------- */
+
+function InstallBanner() {
+  const { canInstall, install } = useInstallPrompt();
+  const [dismissed, setDismissed] = useState(false);
+  if (!canInstall || dismissed) return null;
+  return (
+    <div className="mx-auto mt-3 flex max-w-7xl items-center gap-3 overflow-hidden rounded-2xl glass px-4 py-2.5">
+      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl gradient-brand font-display text-sm font-black text-primary-foreground">
+        H
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-bold">Install the HopeX app</p>
+        <p className="truncate text-[11px] text-muted-foreground">
+          One tap — deposits open outside the app, payments stay secure.
+        </p>
+      </div>
+      <button
+        onClick={() => void install()}
+        className="shrink-0 rounded-xl btn-glass btn-glass-primary px-3 py-2 text-xs font-black"
+      >
+        Install
+      </button>
+      <button
+        onClick={() => setDismissed(true)}
+        aria-label="Dismiss"
+        className="shrink-0 text-muted-foreground transition hover:text-foreground"
+      >
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  );
+}
+
 /* ---------------- notifications bell ---------------- */
 
 function NotificationBell() {
@@ -125,6 +189,13 @@ function NotificationBell() {
   const [open, setOpen] = useState(false);
   const markAll = useMutation(api.notifications.markAllRead);
   const markRead = useMutation(api.notifications.markRead);
+
+  // Allow popup toasts (PopupNotifier) to open this panel.
+  useEffect(() => {
+    const openBell = () => setOpen(true);
+    window.addEventListener("hopex:open-notifications", openBell);
+    return () => window.removeEventListener("hopex:open-notifications", openBell);
+  }, []);
 
   const items = notifications;
   const unread = items.filter((n) => !n.read).length;
@@ -232,7 +303,7 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/", { replace: true });
+    navigate("/auth?mode=login", { replace: true });
   };
 
   return (
@@ -354,6 +425,8 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
               </div>
             </header>
 
+            <InstallBanner />
+            <PopupNotifier />
             <AnnouncementBanner />
 
             <main className={cn("mx-auto px-4 pb-32 pt-6 md:pb-12", wide ? "max-w-[100rem]" : "max-w-7xl")}>

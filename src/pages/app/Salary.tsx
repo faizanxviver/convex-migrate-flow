@@ -211,9 +211,9 @@ export default function SalaryPage() {
         </GlassCard>
         <GlassCard className="p-4">
           <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-            <UsersRound className="h-3 w-3" /> Direct team
+            <TrendingUp className="h-3 w-3" /> Salary cycle
           </p>
-          <p className="mt-1 font-display text-lg font-black">{s.team}</p>
+          <p className="mt-1 font-display text-lg font-black">{cyclePct}%</p>
         </GlassCard>
         <GlassCard className="p-4">
           <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -333,7 +333,7 @@ export default function SalaryPage() {
         to="/dashboard/referrals"
         className="btn-glass flex h-12 items-center justify-center gap-2 text-sm font-semibold text-foreground"
       >
-        <UsersRound className="h-4 w-4" /> Invite your team to grow your rank
+        <UsersRound className="h-4 w-4" /> Invite friends — their investments raise your rank
       </Link>
     </div>
   );

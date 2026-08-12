@@ -2,6 +2,7 @@ import { GlassCard, SectionTitle } from "@/components/hopex/glass";
 import { useAuth } from "@/hooks/use-auth";
 import { useChatUi } from "@/components/hopex/dashboard-layout";
 import { useHope } from "@/hooks/use-hope";
+import { useInstallPrompt } from "@/hooks/use-install";
 import { useT } from "@/lib/i18n";
 import { depositBalance, money } from "@/lib/hopex";
 import {
@@ -24,6 +25,7 @@ import {
   Wallet,
   WalletMinimal,
 } from "lucide-react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { toast } from "sonner";
 
@@ -67,7 +69,7 @@ export default function MorePage() {
 
   const handleSignOut = async () => {
     await signOut();
-    navigate("/", { replace: true });
+    navigate("/auth?mode=login", { replace: true });
   };
 
   return (
@@ -135,6 +137,9 @@ export default function MorePage() {
         </span>
         <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-success" />
       </button>
+
+      {/* Install app */}
+      <InstallAppCard />
 
       {/* Wallet */}
       <section>
@@ -241,6 +246,35 @@ function Mini({ label, value, gold }: { label: string; value: string; gold?: boo
       <p className="truncate text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p>
       <p className={`mt-0.5 truncate font-display text-lg font-extrabold ${gold ? "text-gold" : ""}`}>{value}</p>
     </div>
+  );
+}
+
+/** "Install the app" card — shows whenever the browser can install the PWA
+ *  (Chrome/Edge/Samsung Internet). Hidden inside the installed app itself. */
+function InstallAppCard() {
+  const { canInstall, install } = useInstallPrompt();
+  if (!canInstall) return null;
+  return (
+    <GlassCard glow className="relative overflow-hidden p-5">
+      <div className="pointer-events-none absolute -right-14 -top-14 h-44 w-44 rounded-full bg-success/15 blur-3xl" />
+      <div className="relative flex flex-wrap items-center gap-4">
+        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl gradient-brand font-display text-xl font-black text-primary-foreground">
+          H
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-base font-extrabold">Install the HopeX app</p>
+          <p className="text-xs text-muted-foreground">
+            Faster deposits, one-tap access, secure gateway in an external tab.
+          </p>
+        </div>
+        <button
+          onClick={() => void install()}
+          className="btn-glass btn-glass-primary shrink-0 px-5 py-2.5 text-sm font-black"
+        >
+          Install
+        </button>
+      </div>
+    </GlassCard>
   );
 }
 

@@ -203,41 +203,48 @@ export default function DepositPage() {
 
 function ConnectingOverlay({ amount }: { amount: number }) {
   return (
-    <div className="fixed inset-0 z-[120] grid place-items-center bg-background/85 p-6 backdrop-blur-xl">
-      <div className="animate-rise w-full max-w-sm rounded-[2rem] border border-border/50 bg-background/60 p-8 text-center shadow-[var(--shadow-elegant)] backdrop-blur-2xl">
-        <div className="relative mx-auto grid h-24 w-24 place-items-center">
-          <span className="absolute inset-0 animate-ping rounded-full bg-primary/20" />
-          <span className="relative grid h-20 w-20 place-items-center rounded-3xl gradient-brand text-primary-foreground">
-            <Loader2 className="h-9 w-9 animate-spin [animation-duration:0.5s]" />
-          </span>
+    <div className="fixed inset-0 z-[120] grid place-items-center overflow-y-auto bg-background/90 p-4 backdrop-blur-xl sm:p-6">
+      <div className="aurora" />
+      <div className="animate-rise relative w-full max-w-md rounded-[2rem] border border-border/50 bg-background/70 p-6 text-center shadow-[var(--shadow-elegant)] backdrop-blur-2xl sm:p-10">
+        <div className="pointer-events-none absolute -right-16 -top-20 h-48 w-48 rounded-full bg-primary/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-20 -left-16 h-48 w-48 rounded-full bg-gold/20 blur-3xl" />
+        <div className="relative">
+          <div className="relative mx-auto grid h-24 w-24 place-items-center sm:h-28 sm:w-28">
+            <span className="absolute inset-0 animate-ping rounded-full bg-primary/20" />
+            <span className="relative grid h-20 w-20 place-items-center rounded-3xl gradient-brand text-primary-foreground shadow-lg shadow-primary/30 sm:h-24 sm:w-24">
+              <Loader2 className="h-9 w-9 animate-spin [animation-duration:0.5s] sm:h-10 sm:w-10" />
+            </span>
+          </div>
+          <h2 className="mt-6 font-display text-2xl font-black sm:text-3xl">Jumping to gateway…</h2>
+          <p className="mx-auto mt-2 max-w-xs text-sm text-muted-foreground sm:text-base">
+            Preparing your secure session{amount ? ` for ${money(amount)}` : ""}. You'll be
+            redirected to MPay in a moment — the payment page is already loading in the new tab.
+          </p>
+          <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div className="h-full w-1/3 animate-[scroll_0.7s_linear_infinite] rounded-full gradient-cool" />
+          </div>
+          <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground sm:text-sm">
+            <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" /> Encrypted MPay session
+          </p>
         </div>
-        <h2 className="mt-6 font-display text-2xl font-black">Jumping to gateway…</h2>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Preparing your secure session{amount ? ` for ${money(amount)}` : ""}. You'll be redirected
-          to MPay in a moment — the payment page is already loading in the new tab.
-        </p>
-        <div className="mt-6 h-1.5 w-full overflow-hidden rounded-full bg-muted">
-          <div className="h-full w-1/3 animate-[scroll_0.7s_linear_infinite] rounded-full gradient-cool" />
-        </div>
-        <p className="mt-4 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-          <ShieldCheck className="h-3.5 w-3.5 text-success" /> Encrypted MPay session
-        </p>
       </div>
     </div>
   );
 }
 
-/** Instant branded loading page painted into the new tab so it's never blank. */
+/** Instant branded loading page painted into the new tab so it's never blank.
+ *  Matches the app's theme: dark navy, brand green/gold gradient, rounded logo. */
 function gatewayBootPage() {
-  const brand = "#0b1220";
-  const green = "#10b981";
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>html,body{height:100%;margin:0;background:${brand};color:#e5e7eb;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-.wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px}
-.spin{width:52px;height:52px;border-radius:50%;border:4px solid rgba(16,185,129,.18);border-top-color:${green};animation:rot .8s linear infinite}
+<style>html,body{height:100%;margin:0;background:#0b1220;color:#e5e7eb;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px;position:relative;overflow:hidden}
+.blob{position:absolute;border-radius:50%;filter:blur(70px);opacity:.28;pointer-events:none}
+.b1{width:340px;height:340px;background:#10b981;top:-110px;right:-90px}.b2{width:340px;height:340px;background:#f59e0b;bottom:-120px;left:-100px}
+.logo{position:relative;width:64px;height:64px;border-radius:20px;background:linear-gradient(135deg,#10b981,#0ea5e9 55%,#f59e0b);display:grid;place-items:center;font-weight:900;font-size:26px;color:#fff;box-shadow:0 12px 40px -8px rgba(16,185,129,.55)}
+.spin{position:relative;width:46px;height:46px;border-radius:50%;border:4px solid rgba(16,185,129,.16);border-top-color:#10b981;border-right-color:#f59e0b;animation:rot .75s linear infinite}
 @keyframes rot{to{transform:rotate(360deg)}}
-h1{font-size:19px;font-weight:700;margin:0;letter-spacing:.2px}
-p{font-size:13px;color:#9ca3af;margin:0;max-width:320px;line-height:1.5}
-.pill{margin-top:6px;font-size:11px;color:#34d399;border:1px solid rgba(52,211,153,.4);border-radius:999px;padding:6px 14px;letter-spacing:.4px;text-transform:uppercase;font-weight:600}
-</style></head><body><div class="wrap"><div class="spin"></div><h1>Jumping to gateway…</h1><p>Securing your payment session. You'll be redirected automatically — please keep this tab open.</p><span class="pill">Encrypted MPay session</span></div></body></html>`;
+h1{position:relative;font-size:20px;font-weight:800;margin:0;letter-spacing:.2px}
+p{position:relative;font-size:13px;color:#94a3b8;margin:0;max-width:330px;line-height:1.55}
+.pill{position:relative;margin-top:4px;font-size:11px;color:#34d399;border:1px solid rgba(52,211,153,.4);border-radius:999px;padding:6px 16px;letter-spacing:.4px;text-transform:uppercase;font-weight:700}
+</style></head><body><div class="wrap"><div class="blob b1"></div><div class="blob b2"></div><div class="logo">H</div><div class="spin"></div><h1>Jumping to gateway…</h1><p>Securing your payment session. You'll be redirected automatically — please keep this tab open.</p><span class="pill">Encrypted MPay session</span></div></body></html>`;
 }

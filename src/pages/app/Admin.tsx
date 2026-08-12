@@ -3195,8 +3195,8 @@ function SalarySettings({ settings, set }: { settings: ReturnType<typeof useHope
       </div>
       <div className="mt-3 space-y-2">
         {tiers.map((t, i) => (
-          <div key={i} className="grid grid-cols-4 gap-2">
-            {(["rank", "team", "invested", "salary"] as const).map((k) => (
+          <div key={i} className="grid grid-cols-3 gap-2">
+            {(["rank", "invested", "salary"] as const).map((k) => (
               <input
                 key={k}
                 defaultValue={String(t[k])}
@@ -3206,7 +3206,7 @@ function SalarySettings({ settings, set }: { settings: ReturnType<typeof useHope
                   else next[i] = { ...next[i]!, [k]: Number(e.target.value) || 0 };
                   void set("salaryTiers", next);
                 }}
-                placeholder={k}
+                placeholder={k === "rank" ? "Rank" : k === "invested" ? "L1 invest" : "Salary"}
                 className="h-11 rounded-xl border border-input bg-background/40 px-3 text-xs outline-none"
               />
             ))}
@@ -3215,7 +3215,7 @@ function SalarySettings({ settings, set }: { settings: ReturnType<typeof useHope
       </div>
       <div className="mt-3 flex gap-2">
         <button
-          onClick={() => void set("salaryTiers", [...tiers, { rank: "New rank", team: 5, invested: 5000, salary: 500 }])}
+          onClick={() => void set("salaryTiers", [...tiers, { rank: "New rank", team: 0, invested: 5000, salary: 500 }])}
           className="btn-glass h-10 px-4 text-xs font-bold text-foreground"
         >
           Add tier
@@ -3227,7 +3227,7 @@ function SalarySettings({ settings, set }: { settings: ReturnType<typeof useHope
         ) : null}
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Columns: rank name, direct team required, personal investment required, monthly salary.
+        Columns: rank name, level-1 team investment required, weekly salary. Salary depends only on your direct team's total investment — no team-size requirement.
       </p>
     </div>
   );

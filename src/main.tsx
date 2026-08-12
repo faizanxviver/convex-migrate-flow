@@ -33,6 +33,17 @@ const MorePage = lazy(() => import("./pages/app/More.tsx"));
 const ProfilePage = lazy(() => import("./pages/app/Profile.tsx"));
 const AdminPage = lazy(() => import("./pages/app/Admin.tsx"));
 
+// Register the service worker so the site becomes installable (Chrome needs
+// both PNG manifest icons and a fetch-handler SW before it fires
+// beforeinstallprompt). Skipped in the standalone installed app.
+if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("/sw.js").catch(() => {
+      /* non-fatal */
+    });
+  });
+}
+
 // Simple loading fallback for route transitions
 function RouteLoading() {
   return (

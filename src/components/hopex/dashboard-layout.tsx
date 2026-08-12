@@ -1,4 +1,5 @@
 import { api } from "@/convex/_generated/api";
+import type { Doc } from "@/convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 import { useHope, useTheme } from "@/hooks/use-hope";
 import { useInstallPrompt } from "@/hooks/use-install";
@@ -124,27 +125,89 @@ const seenPopupIds = new Set<string>();
 
 /**
  * Watch for notifications the admin flagged `popup: true` (broadcasts, direct
- * messages) and surface them as a prominent toast the moment they arrive —
- * once per session, so returning to the dashboard doesn't re-toast old ones.
+ * messages) and show them as a full branded popup — logo, title and message —
+ * the moment they arrive. Once per session, so old ones don't re-pop.
  */
 function PopupNotifier() {
-  const { notifications } = useHope();
+  const { notifications, settings } = useHope();
+  const [current, setCurrent] = useState<Doc<"notifications"> | null>(null);
+  const [queue, setQueue] = useState<Doc<"notifications">[]>([]);
+
+  // Push newly-arrived popup notifications into the queue.
   useEffect(() => {
     for (const n of notifications) {
       if (!n.popup || n.read || seenPopupIds.has(n._id)) continue;
       seenPopupIds.add(n._id);
-      toast(n.title, {
-        description: n.body,
-        duration: 6000,
-        icon: <span className="grid h-8 w-8 place-items-center rounded-xl gradient-brand font-display text-xs font-black text-primary-foreground">H</span>,
-        action: {
-          label: "View",
-          onClick: () => window.dispatchEvent(new CustomEvent("hopex:open-notifications")),
-        },
-      });
+      setQueue((q) => (q.some((x) => x._id === n._id) ? q : [...q, n]));
     }
   }, [notifications]);
-  return null;
+
+  // Show one at a time.
+  useEffect(() => {
+    if (current || queue.length === 0) return;
+    const next = queue[0];
+    setCurrent(next);
+    setQueue((q) => q.slice(1));
+  }, [current, queue]);
+
+  if (!current) return null;
+
+  const name = settings?.siteName || "HopeX";
+  const logo = settings?.siteLogo;
+  const kindTone =
+    current.kind === "success"
+      ? "bg-success/15 text-success"
+      : current.kind === "warning"
+        ? "bg-warning/20 text-warning"
+        : current.kind === "danger"
+          ? "bg-destructive/15 text-destructive"
+          : "bg-primary/15 text-primary";
+  const kindIcon =
+    current.kind === "success" ? "✓" : current.kind === "warning" ? "!" : current.kind === "danger" ? "✕" : "✦";
+
+  return (
+    <div className="fixed inset-0 z-[95] grid place-items-center overflow-y-auto p-4">
+      <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setCurrent(null)} />
+      <div className="animate-rise relative w-full max-w-md overflow-hidden rounded-[2rem] border border-border/60 bg-background shadow-[var(--shadow-elegant)]">
+        <span className="pointer-events-none absolute -left-16 -top-20 h-56 w-56 rounded-full bg-primary/25 blur-3xl" />
+        <span className="pointer-events-none absolute -bottom-20 -right-14 h-56 w-56 rounded-full bg-gold/25 blur-3xl" />
+
+        <button
+          onClick={() => setCurrent(null)}
+          aria-label="Close"
+          className="absolute right-4 top-4 z-10 grid h-9 w-9 place-items-center rounded-xl glass-soft text-muted-foreground transition hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
+
+        <div className="relative p-7 text-center">
+          <span className="mx-auto grid h-20 w-20 place-items-center overflow-hidden rounded-3xl gradient-brand font-display text-2xl font-black text-primary-foreground shadow-[0_10px_40px_-10px_var(--primary)]">
+            {logo ? <img src={logo} alt={`${name} logo`} className="h-full w-full object-cover" /> : name[0]}
+          </span>
+          <span className={`mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${kindTone}`}>
+            {kindIcon} {name} announcement
+          </span>
+          <h2 className="mt-2 font-display text-2xl font-black">{current.title}</h2>
+          <p className="mx-auto mt-2 max-w-sm whitespace-pre-line text-sm text-muted-foreground">{current.body}</p>
+        </div>
+
+        <div className="relative flex gap-2 px-7 pb-6 pt-2">
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent("hopex:open-notifications"))}
+            className="btn-glass flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl text-sm font-black text-foreground"
+          >
+            View all notifications
+          </button>
+          <button
+            onClick={() => setCurrent(null)}
+            className="btn-glass btn-glass-primary flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl text-sm font-black"
+          >
+            Got it
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 /* ---------------- PWA install banner ---------------- */

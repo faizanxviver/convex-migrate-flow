@@ -7,6 +7,7 @@ import { useT } from "@/lib/i18n";
 import { depositBalance, money } from "@/lib/hopex";
 import {
   Banknote,
+  X,
   ChevronRight,
   Copy,
   Crown,
@@ -252,29 +253,67 @@ function Mini({ label, value, gold }: { label: string; value: string; gold?: boo
 /** "Install the app" card — shows whenever the browser can install the PWA
  *  (Chrome/Edge/Samsung Internet). Hidden inside the installed app itself. */
 function InstallAppCard() {
-  const { canInstall, install } = useInstallPrompt();
-  if (!canInstall) return null;
+  const { canInstall, install, installed, checked } = useInstallPrompt();
+  const [how, setHow] = useState(false);
+  if (installed) return null;
   return (
-    <GlassCard glow className="relative overflow-hidden p-5">
-      <div className="pointer-events-none absolute -right-14 -top-14 h-44 w-44 rounded-full bg-success/15 blur-3xl" />
-      <div className="relative flex flex-wrap items-center gap-4">
-        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl gradient-brand font-display text-xl font-black text-primary-foreground">
-          H
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="font-display text-base font-extrabold">Install the HopeX app</p>
-          <p className="text-xs text-muted-foreground">
-            Faster deposits, one-tap access, secure gateway in an external tab.
-          </p>
+    <>
+      <GlassCard glow className="relative overflow-hidden p-5">
+        <div className="pointer-events-none absolute -right-14 -top-14 h-44 w-44 rounded-full bg-success/15 blur-3xl" />
+        <div className="relative flex flex-wrap items-center gap-4">
+          <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl gradient-brand font-display text-xl font-black text-primary-foreground">
+            H
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="font-display text-base font-extrabold">Install the HopeX app</p>
+            <p className="text-xs text-muted-foreground">
+              Faster deposits, one-tap access, secure gateway in an external tab.
+            </p>
+          </div>
+          <button
+            onClick={() => (canInstall ? void install() : setHow(true))}
+            className="btn-glass btn-glass-primary shrink-0 px-5 py-2.5 text-sm font-black"
+          >
+            {canInstall ? "Install" : "How to install"}
+          </button>
         </div>
-        <button
-          onClick={() => void install()}
-          className="btn-glass btn-glass-primary shrink-0 px-5 py-2.5 text-sm font-black"
-        >
-          Install
-        </button>
-      </div>
-    </GlassCard>
+      </GlassCard>
+      {how ? (
+        <div className="fixed inset-0 z-[95] grid place-items-center p-4">
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setHow(false)} />
+          <div className="animate-rise relative w-full max-w-sm rounded-3xl border border-border/60 bg-background p-6 shadow-[var(--shadow-elegant)]">
+            <button
+              onClick={() => setHow(false)}
+              aria-label="Close"
+              className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-xl glass-soft text-muted-foreground transition hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <p className="font-display text-lg font-black">Install the HopeX app</p>
+            <ol className="mt-4 space-y-3 text-sm text-muted-foreground">
+              <li className="flex gap-2.5">
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-primary/12 text-xs font-black text-primary">1</span>
+                Open this website in <b className="text-foreground">Chrome or Edge</b> (not the builder preview).
+              </li>
+              <li className="flex gap-2.5">
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-primary/12 text-xs font-black text-primary">2</span>
+                Tap the browser menu <b className="text-foreground">⋮</b> (top right).
+              </li>
+              <li className="flex gap-2.5">
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-primary/12 text-xs font-black text-primary">3</span>
+                Choose <b className="text-foreground">"Install app"</b> or <b className="text-foreground">"Add to Home screen"</b>.
+              </li>
+            </ol>
+            <button
+              onClick={() => setHow(false)}
+              className="btn-glass btn-glass-primary mt-5 flex h-11 w-full items-center justify-center text-sm font-black"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 

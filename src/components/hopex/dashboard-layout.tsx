@@ -181,9 +181,15 @@ function PopupNotifier() {
         </button>
 
         <div className="relative p-7 text-center">
-          <span className="mx-auto grid h-20 w-20 place-items-center overflow-hidden rounded-3xl gradient-brand font-display text-2xl font-black text-primary-foreground shadow-[0_10px_40px_-10px_var(--primary)]">
-            {logo ? <img src={logo} alt={`${name} logo`} className="h-full w-full object-cover" /> : name[0]}
-          </span>
+          {current.image ? (
+            <span className="mx-auto block h-24 w-24 overflow-hidden rounded-3xl ring-1 ring-border/60">
+              <img src={current.image} alt="" className="h-full w-full object-cover" />
+            </span>
+          ) : (
+            <span className="mx-auto grid h-20 w-20 place-items-center overflow-hidden rounded-3xl gradient-brand font-display text-2xl font-black text-primary-foreground shadow-[0_10px_40px_-10px_var(--primary)]">
+              {logo ? <img src={logo} alt={`${name} logo`} className="h-full w-full object-cover" /> : name[0]}
+            </span>
+          )}
           <span className={`mt-4 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${kindTone}`}>
             {kindIcon} {name} announcement
           </span>
@@ -213,34 +219,81 @@ function PopupNotifier() {
 /* ---------------- PWA install banner ---------------- */
 
 function InstallBanner() {
-  const { canInstall, install } = useInstallPrompt();
+  const { canInstall, install, installed, checked } = useInstallPrompt();
   const [dismissed, setDismissed] = useState(false);
-  if (!canInstall || dismissed) return null;
+  const [how, setHow] = useState(false);
+  if (installed || dismissed || !checked) return null;
   return (
-    <div className="mx-auto mt-3 flex max-w-7xl items-center gap-3 overflow-hidden rounded-2xl glass px-4 py-2.5">
-      <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl gradient-brand font-display text-sm font-black text-primary-foreground">
-        H
-      </span>
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold">Install the HopeX app</p>
-        <p className="truncate text-[11px] text-muted-foreground">
-          One tap — deposits open outside the app, payments stay secure.
-        </p>
+    <>
+      <div className="mx-auto mt-3 flex max-w-7xl items-center gap-3 overflow-hidden rounded-2xl glass px-4 py-2.5">
+        <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl gradient-brand font-display text-sm font-black text-primary-foreground">
+          H
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold">Install the HopeX app</p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            One tap — deposits open outside the app, payments stay secure.
+          </p>
+        </div>
+        {canInstall ? (
+          <button
+            onClick={() => void install()}
+            className="shrink-0 rounded-xl btn-glass btn-glass-primary px-3 py-2 text-xs font-black"
+          >
+            Install
+          </button>
+        ) : (
+          <button
+            onClick={() => setHow(true)}
+            className="shrink-0 rounded-xl btn-glass btn-glass-primary px-3 py-2 text-xs font-black"
+          >
+            How to install
+          </button>
+        )}
+        <button
+          onClick={() => setDismissed(true)}
+          aria-label="Dismiss"
+          className="shrink-0 text-muted-foreground transition hover:text-foreground"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </div>
-      <button
-        onClick={() => void install()}
-        className="shrink-0 rounded-xl btn-glass btn-glass-primary px-3 py-2 text-xs font-black"
-      >
-        Install
-      </button>
-      <button
-        onClick={() => setDismissed(true)}
-        aria-label="Dismiss"
-        className="shrink-0 text-muted-foreground transition hover:text-foreground"
-      >
-        <X className="h-4 w-4" />
-      </button>
-    </div>
+      {how ? (
+        <div className="fixed inset-0 z-[95] grid place-items-center p-4">
+          <div className="fixed inset-0 bg-background/80 backdrop-blur-sm" onClick={() => setHow(false)} />
+          <div className="animate-rise relative w-full max-w-sm rounded-3xl border border-border/60 bg-background p-6 shadow-[var(--shadow-elegant)]">
+            <button
+              onClick={() => setHow(false)}
+              aria-label="Close"
+              className="absolute right-4 top-4 grid h-9 w-9 place-items-center rounded-xl glass-soft text-muted-foreground transition hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <p className="font-display text-lg font-black">Install the HopeX app</p>
+            <ol className="mt-4 space-y-3 text-sm text-muted-foreground">
+              <li className="flex gap-2.5">
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-primary/12 text-xs font-black text-primary">1</span>
+                Open this website in <b className="text-foreground">Chrome or Edge</b> (not the builder preview).
+              </li>
+              <li className="flex gap-2.5">
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-primary/12 text-xs font-black text-primary">2</span>
+                Tap the browser menu <b className="text-foreground">⋮</b> (top right).
+              </li>
+              <li className="flex gap-2.5">
+                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg bg-primary/12 text-xs font-black text-primary">3</span>
+                Choose <b className="text-foreground">"Install app"</b> or <b className="text-foreground">"Add to Home screen"</b>.
+              </li>
+            </ol>
+            <button
+              onClick={() => setHow(false)}
+              className="btn-glass btn-glass-primary mt-5 flex h-11 w-full items-center justify-center text-sm font-black"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }
 
@@ -299,12 +352,17 @@ function NotificationBell() {
                       if (!n.read) void markRead({ id: n._id });
                     }}
                     className={cn(
-                      "block w-full border-b border-border/40 p-4 text-left transition hover:bg-accent/40",
+                      "flex w-full gap-3 border-b border-border/40 p-4 text-left transition hover:bg-accent/40",
                       !n.read && "bg-primary/5",
                     )}
                   >
-                    <p className="text-sm font-semibold">{n.title}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{n.body}</p>
+                    {n.image ? (
+                      <img src={n.image} alt="" className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-border/60" />
+                    ) : null}
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold">{n.title}</span>
+                      <span className="mt-1 block text-xs text-muted-foreground">{n.body}</span>
+                    </span>
                   </button>
                 ))
               )}

@@ -77,10 +77,11 @@ export const adminNotify = mutation({
     body: v.string(),
     kind: v.optional(v.string()),
     popup: v.optional(v.boolean()),
+    image: v.optional(v.string()),
   },
-  handler: async (ctx, { userId, title, body, kind, popup }) => {
+  handler: async (ctx, { userId, title, body, kind, popup, image }) => {
     const admin = await requireAdmin(ctx);
-    await pushNotification(ctx, userId, title, body, kind ?? "info", popup ?? false);
+    await pushNotification(ctx, userId, title, body, kind ?? "info", popup ?? false, image);
     const target = await getProfileByUserId(ctx, userId);
     await logAudit(ctx, admin, "Sent notification", {
       targetId: userId,
@@ -101,8 +102,9 @@ export const adminBroadcast = mutation({
     userIds: v.optional(v.array(v.id("users"))),
     kind: v.optional(v.string()),
     popup: v.optional(v.boolean()),
+    image: v.optional(v.string()),
   },
-  handler: async (ctx, { title, body, userIds, kind, popup }) => {
+  handler: async (ctx, { title, body, userIds, kind, popup, image }) => {
     const admin = await requireAdmin(ctx);
     let targets: typeof userIds = userIds;
     if (!targets || targets.length === 0) {
@@ -110,7 +112,7 @@ export const adminBroadcast = mutation({
       targets = profiles.map((p) => p.userId);
     }
     for (const uid of targets) {
-      await pushNotification(ctx, uid, title, body, kind ?? "info", popup ?? false);
+      await pushNotification(ctx, uid, title, body, kind ?? "info", popup ?? false, image);
     }
     await logAudit(ctx, admin, "Broadcast sent", {
       detail: `${title} · ${targets.length} users`,

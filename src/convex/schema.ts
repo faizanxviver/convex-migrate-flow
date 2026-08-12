@@ -214,6 +214,7 @@ const schema = defineSchema(
       title: v.string(),
       body: v.string(),
       kind: v.string(), // "success" | "info" | "warning" | "error"
+      image: v.optional(v.string()),
       read: v.boolean(),
       popup: v.boolean(),
       createdAt: v.number(),

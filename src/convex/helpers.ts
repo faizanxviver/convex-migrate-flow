@@ -86,12 +86,14 @@ export async function pushNotification(
   body: string,
   kind: string = "info",
   popup = false,
+  image?: string,
 ) {
   await ctx.db.insert("notifications", {
     userId,
     title,
     body,
     kind,
+    image: image || undefined,
     read: false,
     popup,
     createdAt: Date.now(),

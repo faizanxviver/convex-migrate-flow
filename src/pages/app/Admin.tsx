@@ -2345,6 +2345,7 @@ function BroadcastPanel() {
   const broadcast = useMutation(api.notifications.adminBroadcast);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const [image, setImage] = useState("");
   const [target, setTarget] = useState("all");
   const [busy, setBusy] = useState(false);
 
@@ -2354,10 +2355,17 @@ function BroadcastPanel() {
     setBusy(true);
     try {
       const userIds = target === "all" ? undefined : ([target] as Id<"users">[]);
-      const n = await broadcast({ title: title.trim(), body: body.trim(), userIds, popup: true });
+      const n = await broadcast({
+        title: title.trim(),
+        body: body.trim(),
+        image: image.trim() || undefined,
+        userIds,
+        popup: true,
+      });
       toast.success(`Sent to ${n} user(s).`);
       setTitle("");
       setBody("");
+      setImage("");
     } catch (e) {
       toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not send");
     } finally {
@@ -2383,6 +2391,12 @@ function BroadcastPanel() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Title"
+          className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+        />
+        <input
+          value={image}
+          onChange={(e) => setImage(e.target.value)}
+          placeholder="Image URL (optional) — logo or banner shows in the popup"
           className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
         />
         <textarea

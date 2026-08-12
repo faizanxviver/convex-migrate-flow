@@ -16,32 +16,37 @@ export function isStandaloneApp() {
 }
 
 /**
- * Browser "install app" prompt. Only fires in Chrome/Edge/Samsung Internet;
- * returns false when the app is already installed (standalone mode) or when
- * the browser never emits beforeinstallprompt (iOS, etc.).
+ * Install the app. Uses the browser's native beforeinstallprompt when Chrome
+ * provides it; otherwise (iframe preview, iOS Safari, Firefox) returns false so
+ * the UI can show manual instructions instead.
  */
 export function useInstallPrompt() {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
+  const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (isStandaloneApp()) return;
-
+    if (isStandaloneApp()) {
+      setChecked(true);
+      return;
+    }
     const onPrompt = (e: Event) => {
-      // Prevent the default mini-infobar so we control the UI.
       e.preventDefault();
       setDeferred(e as BeforeInstallPromptEvent);
+      setChecked(true);
     };
     const onInstalled = () => {
       setInstalled(true);
       setDeferred(null);
     };
-
     window.addEventListener("beforeinstallprompt", onPrompt);
     window.addEventListener("appinstalled", onInstalled);
+    // If no prompt within 3s, this browser can't do it natively — fall back.
+    const t = setTimeout(() => setChecked(true), 3000);
     return () => {
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
+      clearTimeout(t);
     };
   }, []);
 
@@ -57,5 +62,5 @@ export function useInstallPrompt() {
     return false;
   }, [deferred]);
 
-  return { canInstall: deferred !== null && !installed, install, installed };
+  return { canInstall: deferred !== null && !installed, install, installed, checked };
 }

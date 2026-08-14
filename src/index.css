@@ -547,6 +547,51 @@
   box-shadow: 0 1px 0.5px rgba(0, 0, 0, 0.4);
 }
 
+/* Branded variant of the support chat — purple-gold gradient theme that
+   matches the rest of the site instead of WhatsApp green. */
+.wa-brand {
+  --wa-header: linear-gradient(135deg, #8b5cf6, #7c3aed 58%, #d97706);
+  --wa-teal: #7c3aed;
+  --wa-teal-2: #7c3aed;
+  --wa-send: #7c3aed;
+  --wa-green: #22c55e;
+  --wa-out: linear-gradient(135deg, #8b5cf6, #7c3aed);
+  --wa-in: #ffffff;
+  --wa-panel: #f6f5fb;
+  --wa-text: #1e293b;
+  --wa-dim: #64748b;
+  --wa-tick: #22c55e;
+  --wa-wall: #f3f1fa;
+  --wa-divider: #eceaf6;
+}
+.dark .wa-brand {
+  --wa-header: linear-gradient(135deg, #7c3aed, #6d28d9 58%, #b45309);
+  --wa-teal: #a78bfa;
+  --wa-teal-2: #c4b5fd;
+  --wa-send: #7c3aed;
+  --wa-green: #22c55e;
+  --wa-out: linear-gradient(135deg, #6d28d9, #5b21b6);
+  --wa-in: #1f2433;
+  --wa-panel: #12141f;
+  --wa-text: #e2e8f0;
+  --wa-dim: #94a3b8;
+  --wa-tick: #4ade80;
+  --wa-wall: #161222;
+  --wa-divider: #262238;
+}
+/* Replace the WhatsApp doodle wallpaper with soft brand glows */
+.wa-brand .wa-wall {
+  background-image:
+    radial-gradient(52% 42% at 12% 8%, color-mix(in oklab, var(--primary) 10%, transparent), transparent 70%),
+    radial-gradient(46% 42% at 92% 96%, color-mix(in oklab, var(--gold) 14%, transparent), transparent 70%);
+  background-size: auto;
+  background-attachment: scroll;
+}
+/* Timestamps + ticks stay readable on the gradient bubbles */
+.wa-brand .wa-bubble-out .wa-meta {
+  color: rgba(255, 255, 255, 0.85);
+}
+
 /* Announcement marquee */
 .marquee {
   overflow: hidden;

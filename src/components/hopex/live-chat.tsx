@@ -187,7 +187,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
   let lastDay = "";
 
   return (
-    <div className="wa-chat-open wa fixed inset-0 z-[80] flex flex-col bg-[var(--wa-panel)]">
+    <div className="wa-chat-open wa wa-brand fixed inset-0 z-[80] flex flex-col bg-[var(--wa-panel)]">
       {/* ---------- Header ---------- */}
       <div className="wa-header flex h-16 shrink-0 items-center gap-2 px-2 sm:gap-3 sm:px-4">
         <button onClick={onClose} aria-label="Back" className="grid h-11 w-11 shrink-0 place-items-center rounded-full transition hover:bg-black/10">
@@ -367,11 +367,18 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
                   )}
                 >
                   {m.replyTo ? (
-                    <div className="mb-1 rounded-md border-l-[3px] border-[var(--wa-green)] bg-black/5 px-2 py-1 text-[11px]">
-                      <span className="block font-semibold text-[var(--wa-teal-2)]">
+                    <div
+                      className={cn(
+                        "mb-1 rounded-md border-l-[3px] px-2 py-1 text-[11px]",
+                        mine ? "border-white/50 bg-white/15" : "border-[var(--wa-green)] bg-black/5",
+                      )}
+                    >
+                      <span className={cn("block font-semibold", mine ? "text-white" : "text-[var(--wa-teal-2)]")}>
                         {m.replyTo.from === "user" ? "You" : "HopeX Support"}
                       </span>
-                      <span className="line-clamp-2 wa-dim">{m.replyTo.text}</span>
+                      <span className={cn("line-clamp-2", mine ? "text-white/70" : "wa-dim")}>
+                        {m.replyTo.text}
+                      </span>
                     </div>
                   ) : null}
                   {m.attachment ? (

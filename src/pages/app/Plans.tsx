@@ -8,11 +8,10 @@ import {
   money,
   planDaily,
   round2,
-  withdrawableBalance,
   type Plan,
 } from "@/lib/hopex";
 import { useMutation } from "convex/react";
-import { ShieldCheck, Wallet2 } from "lucide-react";
+import { Wallet2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -34,7 +33,6 @@ export default function PlansPage() {
   if (!profile) return null;
   const deposited = depositBalance(transactions, profile.userId);
   const investable = investableBalance(profile.balance, transactions, profile.invested, profile.userId);
-  const withdrawable = withdrawableBalance(profile.balance, transactions, profile.userId);
 
   const price = active ? active.minAmount : 0;
   const daily = active ? planDaily(active) : 0;
@@ -60,21 +58,16 @@ export default function PlansPage() {
     <div>
       <SectionTitle title="Investment plans" subtitle="Pick a plan and start earning daily income." />
 
-      <div className="mb-5 grid grid-cols-2 gap-3">
-        <GlassCard className="p-4">
+      <div className="mb-5">
+        <GlassCard className="flex items-center justify-between gap-3 p-4">
           <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">
             <Wallet2 className="h-3.5 w-3.5" /> Deposit balance
           </p>
-          <p className="mt-1 truncate font-display text-xl font-extrabold">{money(deposited)}</p>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">Funds your plans</p>
+          <p className="truncate font-display text-xl font-extrabold">{money(deposited)}</p>
         </GlassCard>
-        <GlassCard className="p-4">
-          <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">
-            <ShieldCheck className="h-3.5 w-3.5" /> Withdraw balance
-          </p>
-          <p className="mt-1 truncate font-display text-xl font-extrabold text-gold">{money(withdrawable)}</p>
-          <p className="mt-0.5 text-[10px] text-muted-foreground">Your earnings</p>
-        </GlassCard>
+        <p className="mt-1.5 text-[11px] text-muted-foreground">
+          Plans are funded from your deposit balance — {money(investable)} is available for a new plan.
+        </p>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">

@@ -49,7 +49,7 @@ export default function WithdrawPage() {
   const planActive = investments.some((i) => i.userId === profile.userId);
   const bound = Boolean(profile.accountNumber && profile.accountName);
   const windowOpen = isWithdrawWindowOpen(open, close, new Date(tick));
-  const withdrawable = withdrawableBalance(profile.balance, transactions, profile.userId);
+  const withdrawable = withdrawableBalance(profile.balance, transactions, profile.invested, profile.userId);
 
   /* ---------- account binding first ---------- */
   if (!bound) {

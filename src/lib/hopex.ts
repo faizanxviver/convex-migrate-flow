@@ -67,12 +67,19 @@ export function depositBalance(txs: Transaction[], userId: string) {
 }
 
 /**
- * Withdrawable balance = total balance minus approved deposits.
- * Deposits are locked (the principal is never withdrawable) — only earnings
- * are: plan income, referral commissions, promo bonuses, salary and rewards.
+ * Withdrawable balance = wallet balance minus the deposit principal that is
+ * still locked (deposits not yet invested into plans). The moment a deposit
+ * is invested, that amount stops being locked, so the first income credited
+ * at activation shows up as withdrawable immediately.
  */
-export function withdrawableBalance(balance: number, txs: Transaction[], userId: string) {
-  return round2(Math.max(0, (Number(balance) || 0) - depositBalance(txs, userId)));
+export function withdrawableBalance(
+  balance: number,
+  txs: Transaction[],
+  invested: number,
+  userId: string,
+) {
+  const locked = Math.max(0, depositBalance(txs, userId) - (Number(invested) || 0));
+  return round2(Math.max(0, (Number(balance) || 0) - locked));
 }
 
 /**

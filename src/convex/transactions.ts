@@ -119,7 +119,11 @@ export const requestWithdraw = mutation({
         )
         .reduce((a, t) => a + t.amount, 0),
     );
-    const withdrawable = round2(Math.max(0, profile.balance - deposited));
+    // Locked principal = deposits that haven't been invested into plans yet.
+    // Once a deposit is invested it stops being locked, so the first income
+    // credited at activation is immediately withdrawable.
+    const locked = round2(Math.max(0, deposited - (profile.invested || 0)));
+    const withdrawable = round2(Math.max(0, profile.balance - locked));
     if (withdrawable < amt)
       throw new Error(`You can only withdraw your earnings (${fmt(withdrawable)}).`);
 

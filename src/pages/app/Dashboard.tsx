@@ -119,7 +119,7 @@ export default function DashboardPage() {
             {t("Withdraw balance")}
           </p>
           <p className="mt-2 font-display text-4xl font-black tracking-tight sm:text-5xl">
-            {money(withdrawableBalance(profile.balance, transactions, profile.userId))}
+            {money(withdrawableBalance(profile.balance, transactions, profile.invested, profile.userId))}
           </p>
 
           <div className="mt-4 inline-flex items-center gap-2 rounded-2xl glass-soft px-3 py-2">

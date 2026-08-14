@@ -100,7 +100,7 @@ export default function MorePage() {
         </div>
 
         <div className="relative mt-4 grid gap-2 sm:grid-cols-3">
-          <Mini label={t("Withdraw balance")} value={money(withdrawableBalance(profile.balance, transactions, profile.userId))} />
+          <Mini label={t("Withdraw balance")} value={money(withdrawableBalance(profile.balance, transactions, profile.invested, profile.userId))} />
           <Mini label={t("Referral income")} value={money(profile.referralEarnings)} gold />
         </div>
       </GlassCard>

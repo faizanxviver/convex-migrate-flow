@@ -7,10 +7,12 @@ import { cn } from "@/lib/utils";
 import {
   BellRing,
   ChevronDown,
+  Download,
   Gem,
   Headset,
   House,
   LayoutGrid,
+  Loader2,
   LogOut,
   Megaphone,
   MessageCircle,
@@ -32,6 +34,8 @@ import {
 import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { toast } from "sonner";
 import { initials } from "@/lib/hopex";
+import { isStandaloneApp } from "@/hooks/use-install";
+import { usePush } from "@/hooks/use-push";
 import { ChannelsPopup } from "./channels";
 import { LiveChat } from "./live-chat";
 
@@ -227,6 +231,187 @@ function PopupNotifier() {
             className="btn-glass btn-glass-primary flex h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-black sm:w-auto sm:flex-1"
           >
             Got it
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- install-the-app banner ---------------- */
+
+/** True when the page runs inside the Android APK (Google Studio WebView). */
+function isInAppWebView() {
+  if (typeof window === "undefined") return false;
+  const ua = navigator.userAgent.toLowerCase();
+  return ua.includes("wv") || ua.includes("webview") || ua.includes("hopex-app");
+}
+
+/**
+ * The ONE install prompt on the website. Slides in from the top like a phone
+ * notification (no browser "Allow notifications" dialog, no PWA install flow):
+ * tapping it downloads the APK directly from the admin-set appDownloadUrl.
+ * Hidden when the user is already in the installed app / webview, already has
+ * push enabled (the app user), or dismisses it.
+ */
+function AppInstallBanner() {
+  const { settings, myPushEnabled } = useHope();
+  const [visible, setVisible] = useState(false);
+  const [dismissed, setDismissed] = useState(
+    () => typeof window !== "undefined" && localStorage.getItem("hopex-install-dismissed") === "1",
+  );
+
+  const url = settings?.appDownloadUrl?.trim() ?? "";
+
+  useEffect(() => {
+    if (dismissed || !url || myPushEnabled) return;
+    if (isStandaloneApp() || isInAppWebView()) return;
+    const t = setTimeout(() => setVisible(true), 2600);
+    return () => clearTimeout(t);
+  }, [dismissed, url, myPushEnabled]);
+
+  if (!visible || dismissed || !url || myPushEnabled) return null;
+  if (isStandaloneApp() || isInAppWebView()) return null;
+
+  const name = settings?.siteName || "HopeX";
+  const logo = settings?.siteLogo;
+
+  const close = () => {
+    setVisible(false);
+    setDismissed(true);
+    try {
+      localStorage.setItem("hopex-install-dismissed", "1");
+    } catch {
+      /* ignore */
+    }
+  };
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-[4.6rem] z-[95] flex justify-center px-3">
+      <div className="notif-slide pointer-events-auto w-full max-w-md overflow-hidden rounded-2xl border border-border/60 bg-background/95 shadow-[var(--shadow-elegant)] backdrop-blur-xl">
+        {/* header row */}
+        <div className="flex items-center gap-3 border-b border-border/50 px-4 py-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl gradient-brand font-display text-base font-black text-primary-foreground">
+            {logo ? <img src={logo} alt="" className="h-full w-full object-cover" /> : name[0]}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-black">{name} App</p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              Download the app — real push notifications
+            </p>
+          </div>
+          <span className="shrink-0 rounded-full bg-primary/15 px-2.5 py-1 text-[10px] font-black uppercase tracking-wider text-primary">
+            Install
+          </span>
+          <button
+            onClick={close}
+            aria-label="Dismiss"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* body — line by line, nothing truncated */}
+        <div className="space-y-2 px-4 py-3">
+          <p className="break-words text-[15px] font-extrabold leading-snug">Install the {name} app</p>
+          <p className="whitespace-pre-line break-words text-[13px] leading-relaxed text-muted-foreground">
+            Push notifications even when the app is closed, faster deposits and
+            one-tap access — right on your phone.
+          </p>
+        </div>
+
+        {/* actions — full-width buttons, never overflow on small phones */}
+        <div className="flex flex-col gap-2 border-t border-border/50 px-4 py-3 sm:flex-row">
+          <a
+            href={url}
+            target="_blank"
+            rel="noreferrer"
+            onClick={close}
+            className="btn-glass btn-glass-primary flex h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-black sm:flex-1"
+          >
+            <Download className="h-4 w-4 shrink-0" /> Download App
+          </a>
+          <button
+            onClick={close}
+            className="btn-glass flex h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-foreground sm:w-auto sm:flex-1"
+          >
+            Maybe later
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ---------------- enable push inside the APK (webview only) ---------------- */
+
+/**
+ * Shown ONLY inside the installed Android app (never on the website). Lets the
+ * user turn on web push so the admin's broadcasts arrive as real phone
+ * notifications — and once enabled, the install banner stays hidden forever
+ * (myPushEnabled flips true because the subscription is saved server-side).
+ */
+function InAppPushBanner() {
+  const { myPushEnabled } = useHope();
+  const { permission, enable } = usePush();
+  const [busy, setBusy] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
+
+  if (!isInAppWebView()) return null;
+  if (myPushEnabled || dismissed || busy) return null;
+  if (permission === "granted" || permission === "unsupported") return null;
+
+  const ask = async () => {
+    setBusy(true);
+    const ok = await enable();
+    setBusy(false);
+    if (!ok) {
+      toast.error(
+        "Notifications could not be enabled. Allow notifications in your phone settings (App info → Notifications), then try again.",
+      );
+    }
+  };
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-[4.6rem] z-[95] flex justify-center px-3">
+      <div className="notif-slide pointer-events-auto w-full max-w-md overflow-hidden rounded-2xl border border-border/60 bg-background/95 shadow-[var(--shadow-elegant)] backdrop-blur-xl">
+        <div className="flex items-center gap-3 border-b border-border/50 px-4 py-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
+            <BellRing className="h-4 w-4" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-black">Notifications</p>
+            <p className="truncate text-[11px] text-muted-foreground">
+              Alerts even when the app is closed
+            </p>
+          </div>
+          <button
+            onClick={() => setDismissed(true)}
+            aria-label="Dismiss"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-2 px-4 py-3">
+          <p className="break-words text-[15px] font-extrabold leading-snug">Turn on notifications</p>
+          <p className="whitespace-pre-line break-words text-[13px] leading-relaxed text-muted-foreground">
+            Deposit confirmations, withdrawals and announcements — straight to your phone.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 border-t border-border/50 px-4 py-3 sm:flex-row">
+          <button
+            onClick={() => void ask()}
+            className="btn-glass btn-glass-primary flex h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-black sm:flex-1"
+          >
+            <BellRing className="h-4 w-4 shrink-0" /> Allow notifications
+          </button>
+          <button
+            onClick={() => setDismissed(true)}
+            className="btn-glass flex h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-foreground sm:w-auto sm:flex-1"
+          >
+            Not now
           </button>
         </div>
       </div>
@@ -477,6 +662,8 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
             </header>
 
             <PopupNotifier />
+            <AppInstallBanner />
+            <InAppPushBanner />
             <AnnouncementBanner />
 
             <main className={cn("mx-auto px-4 pb-32 pt-6 md:pb-12", wide ? "max-w-[100rem]" : "max-w-7xl")}>

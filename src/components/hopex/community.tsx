@@ -7,18 +7,16 @@ import {
   ArrowUpFromLine,
   Check,
   ChevronRight,
-  ExternalLink,
   Headset,
-  Megaphone,
-  UsersRound,
   Wallet,
   Zap,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 
 /**
- * WhatsApp community section (groups + channels) used below the plans grid and
- * inside the dashboard popup. Links come from Admin → Channels.
+ * Compact WhatsApp community strip (groups + channels) — one slim row with
+ * Channel / Group buttons, used at the bottom of Plans & Promo pages.
+ * Links come from Admin → Channels.
  */
 export function CommunityLinks({ className }: { className?: string }) {
   const channels = useQuery(api.channels.listChannels);
@@ -26,65 +24,51 @@ export function CommunityLinks({ className }: { className?: string }) {
   const support = settings?.supportWhatsapp?.trim() ?? "";
   if (!channels || (channels.length === 0 && !support)) return null;
 
+  const channel = channels.find((c) => c.kind === "channel");
+  const group = channels.find((c) => c.kind === "group");
+
   return (
-    <section className={cn("mx-auto max-w-6xl px-4 py-8", className)}>
-      <div className="glass relative overflow-hidden rounded-[2rem] p-6 sm:p-8">
-        <span className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[#25D366]/15 blur-3xl" />
-        <span className="pointer-events-none absolute -bottom-20 -left-14 h-56 w-56 rounded-full bg-[#128C7E]/15 blur-3xl" />
-        <div className="relative">
-          <div className="flex items-center gap-2">
-            <span className="grid h-10 w-10 place-items-center rounded-2xl bg-[#25D366]/15 text-[#25D366]">
-              <UsersRound className="h-5 w-5" />
-            </span>
-            <div>
-              <h2 className="font-display text-2xl font-black">Join our community</h2>
-              <p className="text-xs text-muted-foreground">
-                Get updates, signals and instant support on WhatsApp.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 sm:grid-cols-2">
-            {channels.map((c) => (
-              <a
-                key={c._id}
-                href={c.url}
-                target="_blank"
-                rel="noreferrer"
-                className="group flex items-center gap-3 rounded-2xl glass-soft p-4 transition-all hover:-translate-y-0.5"
-              >
-                <span
-                  className={cn(
-                    "grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-white shadow-lg",
-                    c.kind === "channel" ? "bg-[#25D366]" : "bg-[#128C7E]",
-                  )}
-                >
-                  {c.kind === "channel" ? <Megaphone className="h-5 w-5" /> : <UsersRound className="h-5 w-5" />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold">{c.name}</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    {c.kind === "channel" ? "WhatsApp Channel" : "WhatsApp Group"}
-                  </span>
-                </span>
-                <span className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#25D366]/15 px-3 py-2 text-xs font-black text-[#25D366] transition group-hover:bg-[#25D366] group-hover:text-white">
-                  Join <ExternalLink className="h-3.5 w-3.5" />
-                </span>
-              </a>
-            ))}
-          </div>
-
-          {support ? (
-            <a
-              href={support}
-              target="_blank"
-              rel="noreferrer"
-              className="mt-4 flex h-12 items-center justify-center gap-2 rounded-2xl bg-[#25D366] text-sm font-black text-white shadow-[0_10px_30px_-8px_rgba(37,211,102,0.7)] transition hover:brightness-110"
-            >
-              <UsersRound className="h-4 w-4" /> Chat with support on WhatsApp
-            </a>
-          ) : null}
+    <section className={cn("mt-4", className)}>
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl glass p-3">
+        <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-[#25D366]/15 text-[#25D366]">
+          <WhatsAppIcon className="h-5 w-5" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-bold leading-tight">Join our WhatsApp</p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            Official Channel &amp; Group — updates &amp; promo codes
+          </p>
         </div>
+        {channel ? (
+          <a
+            href={channel.url}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-glass flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-foreground transition active:scale-95"
+          >
+            <WhatsAppIcon className="h-3.5 w-3.5 text-[#25D366]" /> Channel
+          </a>
+        ) : null}
+        {group ? (
+          <a
+            href={group.url}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-glass flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-foreground transition active:scale-95"
+          >
+            <WhatsAppIcon className="h-3.5 w-3.5 text-[#25D366]" /> Group
+          </a>
+        ) : null}
+        {!channel && !group && support ? (
+          <a
+            href={support}
+            target="_blank"
+            rel="noreferrer"
+            className="btn-glass flex h-10 shrink-0 items-center gap-1.5 rounded-xl px-3 text-xs font-bold text-foreground transition active:scale-95"
+          >
+            <WhatsAppIcon className="h-3.5 w-3.5 text-[#25D366]" /> Support
+          </a>
+        ) : null}
       </div>
     </section>
   );

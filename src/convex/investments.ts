@@ -36,8 +36,8 @@ export const buyPlan = mutation({
     const amt = round2(amount);
     if (amt < plan.minAmount || amt > plan.maxAmount) throw new Error("Amount outside plan range");
 
-    // Plans are funded only from deposited funds: the wallet must cover it and
-    // the user must have unspent deposit balance (deposits − already invested).
+    // Plans are funded from deposit-backed wallet funds: the wallet must
+    // cover the amount and the user must have deposited at least that much.
     const txs = await ctx.db
       .query("transactions")
       .withIndex("by_user_created", (q) => q.eq("userId", userId))
@@ -47,10 +47,10 @@ export const buyPlan = mutation({
         .filter((t) => t.type === "deposit" && (t.status === "approved" || t.status === "completed"))
         .reduce((a, t) => a + t.amount, 0),
     );
-    const investable = round2(Math.max(0, Math.min(me.balance, deposited - me.invested)));
+    const investable = round2(Math.max(0, Math.min(me.balance, deposited)));
     if (amt > investable)
       throw new Error(
-        `Plans are funded from your deposit balance only — you have ${fmt(investable)} available. Please deposit more first.`,
+        `You have ${fmt(investable)} available for plans. Please deposit more to activate this plan.`,
       );
 
     const now = Date.now();

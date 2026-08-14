@@ -63,10 +63,10 @@ export default function PlansPage() {
           <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">
             <Wallet2 className="h-3.5 w-3.5" /> Deposit balance
           </p>
-          <p className="truncate font-display text-xl font-extrabold">{money(deposited)}</p>
+          <p className="truncate font-display text-xl font-extrabold">{money(investable)}</p>
         </GlassCard>
         <p className="mt-1.5 text-[11px] text-muted-foreground">
-          Plans are funded from your deposit balance — {money(investable)} is available for a new plan.
+          Available for plans from your total deposit of {money(deposited)} — it drops when you activate a plan.
         </p>
       </div>
 
@@ -138,7 +138,7 @@ export default function PlansPage() {
             <h3 className="font-display text-xl font-extrabold">Confirm activation</h3>
             <p className="mt-1 text-sm text-muted-foreground">{active.name}</p>
             <div className="mt-4 space-y-2 rounded-2xl glass-soft p-4 text-sm">
-              <Row label="Your deposit balance" value={money(deposited)} />
+              <Row label="Deposit available" value={money(investable)} />
               <Row label="Price" value={money(price)} />
               <Row label="Daily income" value={money(daily)} />
               <Row label="Days" value={String(active.durationDays)} />

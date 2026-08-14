@@ -1,4 +1,5 @@
 import { api } from "@/convex/_generated/api";
+import { CommunityLinks } from "@/components/hopex/community";
 import { GlassCard, SectionTitle } from "@/components/hopex/glass";
 import { useHope } from "@/hooks/use-hope";
 import { money } from "@/lib/hopex";
@@ -97,6 +98,9 @@ export default function PromoPage() {
       >
         View bonus history
       </Link>
+
+      {/* WhatsApp Channel & Group — get new promo codes */}
+      <CommunityLinks />
     </div>
   );
 }

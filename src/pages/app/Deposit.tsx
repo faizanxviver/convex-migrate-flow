@@ -38,19 +38,16 @@ export default function DepositPage() {
     }
     setBusy(true);
     setConnecting(true);
-    // Open a blank tab synchronously inside the click gesture so popup
-    // blockers never redirect us to the same tab. We immediately paint a
-    // branded "Jumping to gateway…" loading page into it (same-origin blank
-    // tabs accept document.write), so the user never sees a white flash —
-    // the tab is loading the instant it opens, then we point it at MPay as
-    // soon as the backend session is ready. IMPORTANT: do NOT pass "noopener"
-    // here — with noopener, window.open() returns null and we lose the
-    // reference, so the tab stays blank forever. We detach the opener
-    // ourselves right before navigating instead.
-    const tab = window.open("", "_blank");
-    tab?.document.open();
-    tab?.document.write(gatewayBootPage(settings?.siteName || "HopeX", settings?.siteLogo));
-    tab?.document.close();
+    // Open the branded boot page synchronously inside the click gesture so
+    // popup blockers never redirect us to the same tab. It is a REAL
+    // same-origin page (with a proper viewport meta), so it always fills the
+    // mobile screen — unlike document.write into a blank tab, which rendered
+    // tiny in the corner. IMPORTANT: do NOT pass "noopener" here — with
+    // noopener, window.open() returns null and we lose the reference, so the
+    // tab stays on the boot page forever. We detach the opener ourselves
+    // right before navigating instead.
+    const bootUrl = `/gateway-boot?name=${encodeURIComponent(settings?.siteName || "HopeX")}&logo=${encodeURIComponent(settings?.siteLogo || "")}`;
+    const tab = window.open(bootUrl, "_blank");
     try {
       // Tell the backend where the user actually is, so the gateway's
       // "return to site" link points at this website (never at a Convex API
@@ -271,31 +268,4 @@ function ConnectingOverlay({ amount, name, logo }: { amount: number; name: strin
   );
 }
 
-function gatewayBootPage(name: string, logo?: string) {
-  const mark = logo
-    ? `<img referrerpolicy="no-referrer" src="${logo}" alt="${name} logo" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit" />`
-    : `<span style="position:relative;font-size:34px;font-weight:900;color:#fff">${(name[0] ?? "H").toUpperCase()}</span>`;
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<style>
-html,body{height:100%;margin:0;background:#ffffff;color:#0f172a;font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
-.wrap{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:32px 22px;position:relative;overflow:hidden;box-sizing:border-box}
-.blob{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none}
-.b1{width:min(70vw,380px);height:min(70vw,380px);background:rgba(139,92,246,.16);top:-110px;right:-90px}
-.b2{width:min(70vw,380px);height:min(70vw,380px);background:rgba(245,158,11,.20);bottom:-120px;left:-100px}
-.logo-wrap{position:relative;width:136px;height:136px;margin-bottom:28px}
-.ring{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(139,92,246,.18);border-top-color:#8b5cf6;animation:rot 1.1s linear infinite}
-.ring2{position:absolute;inset:7px;border-radius:50%;border:3px solid transparent;border-top-color:#f59e0b;animation:rot 1.6s linear infinite reverse}
-.logo{position:absolute;inset:12px;border-radius:26px;background:linear-gradient(135deg,#8b5cf6,#f59e0b);display:grid;place-items:center;overflow:hidden;box-shadow:0 16px 44px -12px rgba(139,92,246,.55)}
-@keyframes rot{to{transform:rotate(360deg)}}
-h1{position:relative;margin:0;font-size:26px;font-weight:800;letter-spacing:.2px}
-p{position:relative;margin:12px 0 0;font-size:15.5px;color:#64748b;line-height:1.65;max-width:350px}
-.bar{position:relative;margin-top:28px;width:min(86%,320px);height:9px;border-radius:999px;background:#eef0f4;overflow:hidden}
-.bar i{position:absolute;inset:0;border-radius:999px;background:linear-gradient(90deg,#8b5cf6,#f59e0b);transform:translateX(-100%);animation:slide 1s ease-in-out infinite}
-@keyframes slide{0%{transform:translateX(-100%)}50%{transform:translateX(0)}100%{transform:translateX(100%)}}
-.pill{position:relative;margin-top:22px;font-size:12.5px;color:#7c3aed;border:1px solid rgba(139,92,246,.35);background:rgba(139,92,246,.08);border-radius:999px;padding:10px 22px;letter-spacing:.4px;text-transform:uppercase;font-weight:800}
-</style></head><body><div class="wrap"><div class="blob b1"></div><div class="blob b2"></div>
-<div class="logo-wrap"><div class="ring"></div><div class="ring2"></div><div class="logo">${mark}</div></div>
-<h1>Securing your payment…</h1><p>Preparing your secure session. The payment page is loading — you'll be redirected automatically, please keep this tab open.</p>
-<div class="bar"><i></i></div>
-<span class="pill">Encrypted MPay session</span></div></body></html>`;
-}
+

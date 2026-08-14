@@ -15,7 +15,21 @@
 
 
 <body>
-  <div id="root"></div>
+  <!-- Instant branded splash inside #root — React replaces it as soon as the
+       app mounts, so page loads (including the gateway boot tab) never show
+       a blank white flash. -->
+  <div id="root">
+    <div style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#ffffff;font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif">
+      <div style="width:96px;height:96px;border-radius:26px;background:linear-gradient(135deg,#8b5cf6,#f59e0b);display:grid;place-items:center;color:#fff;font-size:40px;font-weight:900;box-shadow:0 16px 44px -12px rgba(139,92,246,.55);animation:bootpulse 1.2s ease-in-out infinite">H</div>
+      <div style="color:#334155;font-weight:700;font-size:15px;letter-spacing:.3px">HopeX</div>
+    </div>
+  </div>
+  <style>
+    @keyframes bootpulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(.94); opacity: .85; }
+    }
+  </style>
   <script type="module" src="/src/main.tsx"></script>
 </body>
 

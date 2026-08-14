@@ -15,6 +15,7 @@ import "./index.css";
 // Lazy load route components for better code splitting
 const AuthPage = lazy(() => import("./pages/Auth.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const GatewayBootPage = lazy(() => import("./pages/GatewayBoot.tsx"));
 
 const Dashboard = lazy(() => import("./pages/app/Dashboard.tsx"));
 const PlansPage = lazy(() => import("./pages/app/Plans.tsx"));
@@ -168,6 +169,7 @@ createRoot(document.getElementById("root")!).render(
                 path="/auth"
                 element={<AuthPage redirectAfterAuth="/dashboard" />}
               />
+              <Route path="/gateway-boot" element={<GatewayBootPage />} />
               <Route
                 path="/dashboard"
                 element={

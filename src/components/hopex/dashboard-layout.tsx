@@ -243,11 +243,6 @@ function InstallBanner() {
   const pushEnabled = useQuery(api.push.myPushEnabled);
   const [dismissed, setDismissed] = useState(false);
   const [busy, setBusy] = useState(false);
-  // Auto-hide after 10s so it never gets in the way.
-  useEffect(() => {
-    const t = setTimeout(() => setDismissed(true), 10000);
-    return () => clearTimeout(t);
-  }, []);
   // Users who already enabled phone notifications have the app — never nag them.
   if (installed || pushEnabled || dismissed || !checked) return null;
 
@@ -255,8 +250,8 @@ function InstallBanner() {
 
   const doInstall = async () => {
     if (apkUrl) {
-      // Direct APK download — the small file downloads and the phone offers
-      // to install it.
+      // Direct APK download — the small file downloads, the phone offers to
+      // install it, and the banner disappears.
       const a = document.createElement("a");
       a.href = apkUrl;
       a.download = "";
@@ -264,12 +259,18 @@ function InstallBanner() {
       a.click();
       a.remove();
       setDismissed(true);
+      toast.success("APK download started — install it from your downloads.");
       return;
     }
     setBusy(true);
     try {
       const ok = await install();
-      if (ok) setDismissed(true);
+      if (ok) {
+        setDismissed(true);
+        toast.success("App installed!");
+      } else {
+        toast.error("App download link set nahi hai. Admin → Settings → App download link (APK) me daalein.");
+      }
     } finally {
       setBusy(false);
     }

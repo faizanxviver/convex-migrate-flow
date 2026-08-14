@@ -20,6 +20,7 @@ import { Link } from "react-router";
 import { toast } from "sonner";
 import { useHope } from "@/hooks/use-hope";
 import { usePush } from "@/hooks/use-push";
+import { isStandaloneApp } from "@/hooks/use-install";
 import { useT } from "@/lib/i18n";
 import {
   activeInvestments,
@@ -300,9 +301,12 @@ export default function DashboardPage() {
   );
 }
 
-/** Notification permission card — asks once, hidden once enabled/denied. */
+/** Notification permission card — asks once, hidden once enabled/denied.
+ *  Shown only inside the installed app (standalone). On the website the
+ *  install banner is shown instead, per the owner's request. */
 function PushCard({ push }: { push: ReturnType<typeof usePush> }) {
   const [busy, setBusy] = useState(false);
+  if (!isStandaloneApp()) return null;
   if (push.permission === "granted" || push.enabled) return null;
   if (push.permission === "denied") {
     return (

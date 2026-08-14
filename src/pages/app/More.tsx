@@ -291,9 +291,11 @@ function InstallAppCard() {
       document.body.appendChild(a);
       a.click();
       a.remove();
+      toast.success("APK download started — install it from your downloads.");
       return;
     }
-    void install();
+    const ok = await install();
+    if (!ok) toast.error("App download link set nahi hai. Admin → Settings → App download link (APK) me daalein.");
   };
   return (
     <GlassCard glow className="relative overflow-hidden p-5">

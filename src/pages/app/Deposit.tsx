@@ -246,7 +246,7 @@ function ConnectingOverlay({ amount, name, logo }: { amount: number; name: strin
           <span className="absolute inset-[7px] animate-spin rounded-full border-[3px] border-transparent border-t-[#F59E0B] [animation-duration:1.6s] [animation-direction:reverse]" />
           <span className="absolute inset-3 grid place-items-center overflow-hidden rounded-[1.5rem] gradient-brand font-display text-4xl font-black text-primary-foreground shadow-[0_12px_40px_-10px_rgba(139,92,246,0.6)]">
             {logo ? (
-              <img src={logo} alt={`${name} logo`} className="h-full w-full object-cover" />
+              <img referrerPolicy="no-referrer" src={logo} alt={`${name} logo`} className="h-full w-full object-cover" />
             ) : (
               (name[0] ?? "H")
             )}
@@ -273,7 +273,7 @@ function ConnectingOverlay({ amount, name, logo }: { amount: number; name: strin
 
 function gatewayBootPage(name: string, logo?: string) {
   const mark = logo
-    ? `<img src="${logo}" alt="${name} logo" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit" />`
+    ? `<img referrerpolicy="no-referrer" src="${logo}" alt="${name} logo" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit" />`
     : `<span style="position:relative;font-size:34px;font-weight:900;color:#fff">${(name[0] ?? "H").toUpperCase()}</span>`;
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <style>

@@ -63,7 +63,7 @@ export function Brand({ compact }: { compact?: boolean }) {
     <Link to="/" className="flex items-center gap-2">
       <span className="grid h-9 w-9 shrink-0 place-items-center overflow-hidden rounded-xl gradient-brand font-display text-sm font-black text-primary-foreground">
         {logo ? (
-          <img src={logo} alt={`${name} logo`} className="h-full w-full object-cover" />
+          <img referrerPolicy="no-referrer" src={logo} alt={`${name} logo`} className="h-full w-full object-cover" />
         ) : (
           (name[0] ?? "H")
         )}
@@ -177,7 +177,7 @@ function NotificationBell() {
                     )}
                   >
                     {n.image ? (
-                      <img src={n.image} alt="" className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-border/60" />
+                      <img referrerPolicy="no-referrer" src={n.image} alt="" className="h-11 w-11 shrink-0 rounded-xl object-cover ring-1 ring-border/60" />
                     ) : null}
                     <span className="min-w-0">
                       <span className="block truncate text-sm font-semibold">{n.title}</span>
@@ -209,6 +209,9 @@ function ChatFab() {
       aria-label="Open live chat"
       className="fixed bottom-24 right-4 z-40 grid h-14 w-14 place-items-center rounded-full bg-[#25D366] text-white shadow-[0_10px_30px_-8px_rgba(37,211,102,0.8)] transition hover:scale-105 active:scale-90 md:bottom-8"
     >
+      {unread > 0 ? (
+        <span aria-hidden className="absolute inset-0 animate-ping rounded-full bg-[#25D366]/50" />
+      ) : null}
       <MessageCircle className="h-6 w-6" fill="currentColor" strokeWidth={0} />
       {unread > 0 ? (
         <span className="absolute -right-0.5 -top-0.5 grid h-5 min-w-5 place-items-center rounded-full bg-destructive px-1 text-[10px] font-bold text-destructive-foreground">

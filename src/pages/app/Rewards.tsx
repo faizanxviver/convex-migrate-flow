@@ -98,10 +98,10 @@ export default function RewardsPage() {
                 {(c.whatsappProof || c.facebookProof) ? (
                   <span className="mt-1.5 flex gap-2">
                     {c.whatsappProof ? (
-                      <img src={c.whatsappProof} alt="WhatsApp proof" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
+                      <img referrerPolicy="no-referrer" src={c.whatsappProof} alt="WhatsApp proof" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
                     ) : null}
                     {c.facebookProof ? (
-                      <img src={c.facebookProof} alt="Facebook proof" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
+                      <img referrerPolicy="no-referrer" src={c.facebookProof} alt="Facebook proof" className="h-14 w-14 rounded-xl object-cover ring-1 ring-border" />
                     ) : null}
                   </span>
                 ) : null}

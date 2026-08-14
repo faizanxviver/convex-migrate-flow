@@ -108,6 +108,7 @@ export function ChatAttachment({
         className="mb-1 block overflow-hidden rounded-lg"
       >
         <img
+          referrerPolicy="no-referrer"
           src={attachment.url}
           alt={attachment.name || "Shared image"}
           loading="lazy"
@@ -132,6 +133,7 @@ export function ImageLightbox({ url, onClose }: { url: string; onClose: () => vo
       className="fixed inset-0 z-[120] grid place-items-center bg-black/85 p-4 backdrop-blur-sm"
     >
       <img
+        referrerPolicy="no-referrer"
         src={url}
         alt="Attachment"
         className="max-h-[90vh] max-w-full rounded-xl object-contain"

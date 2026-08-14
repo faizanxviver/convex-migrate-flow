@@ -165,7 +165,7 @@ export function DashboardPopup() {
         <div className="rounded-t-[28px] bg-[#071B3A] px-5 pb-4 pt-4 text-center">
           <span className="mx-auto grid h-12 w-12 place-items-center overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/15">
             {logo ? (
-              <img src={logo} alt={`${name} logo`} className="h-full w-full object-cover" />
+              <img referrerPolicy="no-referrer" src={logo} alt={`${name} logo`} className="h-full w-full object-cover" />
             ) : (
               <span className="font-display text-xl font-black text-white">{name[0]}</span>
             )}

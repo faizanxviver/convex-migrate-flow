@@ -2,6 +2,7 @@ import { api } from "@/convex/_generated/api";
 import { useHope } from "@/hooks/use-hope";
 import { useTyping } from "@/lib/typing";
 import { fmtTime } from "@/lib/hopex";
+import { playReceive, playSend } from "@/lib/sounds";
 import { cn } from "@/lib/utils";
 import { useMutation } from "convex/react";
 import {
@@ -110,6 +111,19 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
 
   const { peerTyping, notifyTyping } = useTyping(profile?.userId ?? null, "user");
 
+  /* Soft pop when a NEW support message arrives while the chat is open. */
+  const lastSeenSupport = useRef<string | null>(null);
+  useEffect(() => {
+    if (!open) return;
+    const supportMsgs = chat.filter((m) => m.sender === "support");
+    const latest = supportMsgs[supportMsgs.length - 1];
+    if (!latest) return;
+    if (lastSeenSupport.current !== null && latest._id !== lastSeenSupport.current) {
+      playReceive();
+    }
+    lastSeenSupport.current = latest._id;
+  }, [chat, open]);
+
   /* Viewing the thread marks the agent's messages as read on our side. */
   useEffect(() => {
     if (!open || !profile) return;
@@ -136,6 +150,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
     setReplyTo(null);
     try {
       await send({ text: body, attachment, replyTo: reply });
+      playSend();
       endRef.current?.scrollIntoView({ behavior: "smooth" });
     } catch (e) {
       toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not send message");
@@ -195,7 +210,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
         </button>
         <span className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white/25 font-display text-sm font-black ring-2 ring-white/50">
           {settings?.siteLogo ? (
-            <img src={settings.siteLogo} alt="" className="h-full w-full object-cover" />
+            <img referrerPolicy="no-referrer" src={settings.siteLogo} alt="" className="h-full w-full object-cover" />
           ) : (
             (settings?.siteName?.[0] ?? "H")
           )}
@@ -304,7 +319,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
             <span className="relative grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-white/10 ring-2 ring-white/20">
               <span className="absolute inset-0 animate-ping rounded-full bg-[var(--wa-green)]/25" />
               {settings?.siteLogo ? (
-                <img src={settings.siteLogo} alt="" className="relative h-full w-full object-cover" />
+                <img referrerPolicy="no-referrer" src={settings.siteLogo} alt="" className="relative h-full w-full object-cover" />
               ) : (
                 <span className="relative font-display text-lg font-black">{settings?.siteName?.[0] ?? "H"}</span>
               )}
@@ -348,7 +363,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
                 ) : last ? (
                   <span className="grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded-full bg-white/80 text-[10px] font-black text-[var(--wa-teal-2)] shadow-sm">
                     {settings?.siteLogo ? (
-                      <img src={settings.siteLogo} alt="" className="h-full w-full object-cover" />
+                      <img referrerPolicy="no-referrer" src={settings.siteLogo} alt="" className="h-full w-full object-cover" />
                     ) : (
                       (settings?.siteName?.[0] ?? "H")
                     )}
@@ -505,6 +520,7 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
       {preview ? (
         <div className="wa-panel flex shrink-0 items-center gap-3 px-3 py-2">
           <img
+            referrerPolicy="no-referrer"
             src={preview.url}
             alt="Preview"
             className="h-14 w-14 shrink-0 rounded-xl object-cover ring-1 ring-white/20"

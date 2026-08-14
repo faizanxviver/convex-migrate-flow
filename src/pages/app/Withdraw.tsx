@@ -1,7 +1,7 @@
 import { api } from "@/convex/_generated/api";
 import { GlassCard, SectionTitle } from "@/components/hopex/glass";
 import { useHope } from "@/hooks/use-hope";
-import { hour12, isWithdrawWindowOpen, money, pakistanClock, withdrawableBalance } from "@/lib/hopex";
+import { hour12, isWithdrawWindowOpen, money, withdrawableBalance } from "@/lib/hopex";
 import { cn } from "@/lib/utils";
 import { useMutation } from "convex/react";
 import {
@@ -158,35 +158,29 @@ export default function WithdrawPage() {
   const quick = (settings?.quickAmounts.length ? settings.quickAmounts : [1000, 3000, 5000, 10000, 25000, 50000]).slice(0, 6);
 
   return (
-    <div className="space-y-5 pb-24">
-      <SectionTitle title="Withdraw funds" subtitle="Fast payouts to your bound account." />
-
-      {/* Balance hero */}
-      <GlassCard glow className="relative overflow-hidden p-5 sm:p-6">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-gold/25 blur-3xl" />
+    <div className="space-y-4 pb-24">
+      {/* Balance hero — clean, balance only */}
+      <div className="relative overflow-hidden rounded-[2rem] gradient-brand p-6 text-primary-foreground shadow-[0_24px_60px_-24px_rgba(139,92,246,0.55)] sm:p-8">
+        <span className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-white/15 blur-3xl" />
+        <span className="pointer-events-none absolute -bottom-28 -left-16 h-64 w-64 rounded-full bg-gold/40 blur-3xl" />
         <div className="relative">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            Withdrawable balance
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] backdrop-blur">
+            <ArrowUpFromLine className="h-3 w-3" /> Fast payouts
+          </span>
+          <h1 className="mt-3 font-display text-2xl font-black leading-tight sm:text-3xl">Withdraw funds</h1>
+          <p className="mt-1 max-w-sm text-xs text-primary-foreground/75 sm:text-sm">
+            Your earnings, paid to your bound {profile.bankName} account.
           </p>
-          <p className="mt-1 font-display text-4xl font-black tracking-tight">{money(withdrawable)}</p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold",
-                windowOpen ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive",
-              )}
-            >
-              <Clock4 className="h-3 w-3" />
-              {windowOpen ? "Payout window open" : "Payout window closed"} · {pakistanClock(new Date(tick))}
-            </span>
-            {!planActive ? (
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-warning/20 px-3 py-1 text-[11px] font-bold text-warning">
-                <Lock className="h-3 w-3" /> Plan required
-              </span>
-            ) : null}
+          <div className="mt-5 rounded-2xl border border-white/20 bg-white/15 px-4 py-4 backdrop-blur">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-primary-foreground/70">
+              Withdraw balance
+            </p>
+            <p className="mt-1 font-display text-3xl font-black tabular-nums sm:text-4xl">
+              {money(withdrawable)}
+            </p>
           </div>
         </div>
-      </GlassCard>
+      </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.35fr_1fr]">
         <GlassCard>

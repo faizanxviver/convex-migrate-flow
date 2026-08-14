@@ -344,7 +344,7 @@ function AdminConsole() {
                 </button>
               </div>
             </div>
-            <img src={proof} alt="Payment proof" className="w-full rounded-2xl" />
+            <img referrerPolicy="no-referrer" src={proof} alt="Payment proof" className="w-full rounded-2xl" />
           </div>
         </div>
       ) : null}
@@ -1248,7 +1248,7 @@ function MoneyCard({
             onClick={() => tx.proofUrl && onViewProof(tx.proofUrl)}
             className="mt-3 flex w-full items-center gap-3 rounded-2xl border border-border/60 bg-background/40 p-2 text-left transition hover:border-primary/50"
           >
-            <img src={tx.proofUrl} alt="Payment proof" loading="lazy" className="h-12 w-12 rounded-xl object-cover" />
+            <img referrerPolicy="no-referrer" src={tx.proofUrl} alt="Payment proof" loading="lazy" className="h-12 w-12 rounded-xl object-cover" />
             <span className="flex items-center gap-1 text-xs font-bold text-primary">
               <ImageIcon className="h-3.5 w-3.5" /> View payment proof
             </span>
@@ -1356,7 +1356,7 @@ function MethodsManager() {
             <div className="flex items-center gap-3">
               {m.imageUrl ? (
                 <div className="group relative h-14 w-14 shrink-0 overflow-hidden rounded-2xl ring-1 ring-border">
-                  <img src={m.imageUrl} alt={m.name} className="h-full w-full object-cover" />
+                  <img referrerPolicy="no-referrer" src={m.imageUrl} alt={m.name} className="h-full w-full object-cover" />
                   <button
                     onClick={() => void patch(m._id, "imageUrl", undefined)}
                     aria-label="Remove logo"

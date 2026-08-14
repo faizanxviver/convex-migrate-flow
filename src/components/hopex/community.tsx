@@ -178,30 +178,30 @@ export function DashboardPopup() {
         className="relative max-h-[88vh] w-[92vw] max-w-[540px] overflow-y-auto overflow-x-hidden rounded-[28px] bg-white shadow-[0_30px_80px_-20px_rgba(2,10,25,0.6)]"
       >
         {/* ---------- dark navy header ---------- */}
-        <div className="rounded-t-[28px] bg-[#071B3A] px-6 pb-8 pt-9 text-center">
-          <span className="mx-auto grid h-16 w-16 place-items-center overflow-hidden rounded-2xl bg-white/10 ring-1 ring-white/15">
+        <div className="rounded-t-[28px] bg-[#071B3A] px-5 pb-4 pt-4 text-center">
+          <span className="mx-auto grid h-12 w-12 place-items-center overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/15">
             {logo ? (
               <img src={logo} alt={`${name} logo`} className="h-full w-full object-cover" />
             ) : (
-              <span className="font-display text-2xl font-black text-white">{name[0]}</span>
+              <span className="font-display text-xl font-black text-white">{name[0]}</span>
             )}
           </span>
-          <h2 className="mt-4 font-display text-[26px] font-extrabold leading-tight text-white">{name}</h2>
-          <p className="mt-1 text-[14px] font-medium text-slate-300/80">Platform Guidelines</p>
+          <h2 className="mt-2 font-display text-[20px] font-extrabold leading-tight text-white">{name}</h2>
+          <p className="mt-0.5 text-[12px] font-medium text-slate-300/80">Platform Guidelines</p>
         </div>
 
         {/* ---------- white content ---------- */}
-        <div className="bg-white pb-6 pt-3">
+        <div className="bg-white pb-4 pt-2">
           {/* guideline rows */}
-          <div className="space-y-0.5 px-5">
+          <div className="space-y-0 px-4">
             {guidelines.map((g) => (
-              <div key={g.title} className="flex items-center gap-4 rounded-2xl px-1 py-2.5">
-                <span className={cn("grid h-12 w-12 shrink-0 place-items-center rounded-2xl", g.tone)}>
-                  <g.icon className="h-[22px] w-[22px]" />
+              <div key={g.title} className="flex items-center gap-3 rounded-xl px-0.5 py-1">
+                <span className={cn("grid h-9 w-9 shrink-0 place-items-center rounded-xl", g.tone)}>
+                  <g.icon className="h-[18px] w-[18px]" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[15px] font-bold leading-snug text-slate-900">{g.title}</p>
-                  <p className="mt-0.5 text-[12.5px] leading-relaxed text-slate-500">{g.desc}</p>
+                  <p className="text-[13px] font-bold leading-snug text-slate-900">{g.title}</p>
+                  <p className="text-[11px] leading-snug text-slate-500">{g.desc}</p>
                 </div>
               </div>
             ))}
@@ -209,27 +209,27 @@ export function DashboardPopup() {
 
           {/* ---------- WhatsApp card ---------- */}
           {group || channel ? (
-            <div className="mx-5 mt-2 rounded-2xl border border-emerald-100 bg-emerald-50 p-3">
-              <div className="flex items-center gap-3 px-1 py-1">
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-[#25D366] shadow-sm">
-                  <WhatsAppIcon className="h-6 w-6" />
+            <div className="mx-4 mt-2.5 rounded-2xl border border-emerald-100 bg-emerald-50 p-2.5">
+              <div className="flex items-center gap-2.5 px-1 py-0.5">
+                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[#25D366] shadow-sm">
+                  <WhatsAppIcon className="h-5 w-5" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[15px] font-bold text-emerald-800">Follow Our WhatsApp</p>
-                  <p className="text-[12px] text-slate-500">Join our official WhatsApp Channel &amp; Group</p>
+                  <p className="text-[13px] font-bold leading-snug text-emerald-800">Follow Our WhatsApp</p>
+                  <p className="text-[11px] leading-snug text-slate-500">Join our official Channel &amp; Group</p>
                 </div>
               </div>
-              <div className="mt-2 space-y-1">
+              <div className="mt-1 flex gap-1.5">
                 {channel ? (
                   <a
                     href={channel.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-[13.5px] font-semibold text-emerald-800 transition hover:bg-white/80"
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white/70 px-2 py-1.5 text-[12px] font-semibold text-emerald-800 transition hover:bg-white"
                   >
-                    <WhatsAppIcon className="h-[18px] w-[18px] shrink-0 text-[#25D366]" />
-                    <span className="min-w-0 flex-1 truncate">WhatsApp Channel</span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-emerald-500" />
+                    <WhatsAppIcon className="h-3.5 w-3.5 shrink-0 text-[#25D366]" />
+                    <span className="truncate">Channel</span>
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                   </a>
                 ) : null}
                 {group ? (
@@ -237,11 +237,11 @@ export function DashboardPopup() {
                     href={group.url}
                     target="_blank"
                     rel="noreferrer"
-                    className="flex items-center gap-3 rounded-xl px-2.5 py-2.5 text-[13.5px] font-semibold text-emerald-800 transition hover:bg-white/80"
+                    className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white/70 px-2 py-1.5 text-[12px] font-semibold text-emerald-800 transition hover:bg-white"
                   >
-                    <WhatsAppIcon className="h-[18px] w-[18px] shrink-0 text-[#25D366]" />
-                    <span className="min-w-0 flex-1 truncate">WhatsApp Group</span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-emerald-500" />
+                    <WhatsAppIcon className="h-3.5 w-3.5 shrink-0 text-[#25D366]" />
+                    <span className="truncate">Group</span>
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0 text-emerald-500" />
                   </a>
                 ) : null}
               </div>
@@ -251,26 +251,26 @@ export function DashboardPopup() {
               href={support}
               target="_blank"
               rel="noreferrer"
-              className="mx-5 mt-2 flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3"
+              className="mx-4 mt-2.5 flex items-center gap-2.5 rounded-2xl border border-emerald-100 bg-emerald-50 px-3 py-2.5"
             >
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-[#25D366] shadow-sm">
-                <WhatsAppIcon className="h-6 w-6" />
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white text-[#25D366] shadow-sm">
+                <WhatsAppIcon className="h-5 w-5" />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-[15px] font-bold text-emerald-800">Follow Our WhatsApp</p>
-                <p className="text-[12px] text-slate-500">Join our official WhatsApp Channel &amp; Group</p>
+                <p className="text-[13px] font-bold text-emerald-800">Follow Our WhatsApp</p>
+                <p className="text-[11px] text-slate-500">Join our official Channel &amp; Group</p>
               </div>
-              <ChevronRight className="h-5 w-5 shrink-0 text-emerald-500" />
+              <ChevronRight className="h-4 w-4 shrink-0 text-emerald-500" />
             </a>
           ) : null}
 
           {/* ---------- Got It ---------- */}
-          <div className="px-5 pt-5">
+          <div className="px-4 pt-3">
             <button
               onClick={() => setOpen(false)}
-              className="flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl bg-[#22c55e] text-[16px] font-bold text-white shadow-[0_14px_30px_-10px_rgba(34,197,94,0.6)] transition hover:bg-[#16a34a] active:scale-[0.99]"
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-[#22c55e] text-[15px] font-bold text-white shadow-[0_14px_30px_-10px_rgba(34,197,94,0.6)] transition hover:bg-[#16a34a] active:scale-[0.99]"
             >
-              <Check className="h-5 w-5" strokeWidth={3} /> Got It!
+              <Check className="h-[18px] w-[18px]" strokeWidth={3} /> Got It!
             </button>
           </div>
         </div>

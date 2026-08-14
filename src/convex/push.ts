@@ -71,6 +71,27 @@ export const myPushEnabled = query({
   },
 });
 
+/**
+ * Internal: VAPID keys for web push, as a DB fallback. The admin saves them in
+ * the console (API Keys tab, provider "vapid") so push works without touching
+ * the Freebuff Keys tab. Environment vars (VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY)
+ * still win when present — see pushNode.ts.
+ */
+export const getVapidKeys = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("apiKeys").collect();
+    const find = (purpose: string) => {
+      const k = rows.find((r) => r.provider === "vapid" && r.purpose === purpose && r.active);
+      return (k?.apiKey ?? "").trim();
+    };
+    return {
+      publicKey: find("VAPID_PUBLIC_KEY"),
+      privateKey: find("VAPID_PRIVATE_KEY"),
+    };
+  },
+});
+
 /** Internal: subscriptions, optionally limited to specific users. */
 export const listSubscriptions = internalQuery({
   args: { userIds: v.optional(v.array(v.id("users"))) },

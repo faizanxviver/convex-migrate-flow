@@ -2,7 +2,6 @@ import { api } from "@/convex/_generated/api";
 import type { Doc } from "@/convex/_generated/dataModel";
 import { useAuth } from "@/hooks/use-auth";
 import { useHope, useTheme } from "@/hooks/use-hope";
-import { useInstallPrompt } from "@/hooks/use-install";
 import { useT } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import {
@@ -22,7 +21,7 @@ import {
   WalletMinimal,
   X,
 } from "lucide-react";
-import { useMutation, useQuery } from "convex/react";
+import { useMutation } from "convex/react";
 import {
   createContext,
   useContext,
@@ -228,81 +227,6 @@ function PopupNotifier() {
             className="btn-glass btn-glass-primary flex h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-black sm:w-auto sm:flex-1"
           >
             Got it
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/* ---------------- PWA install banner ---------------- */
-
-function InstallBanner() {
-  const { canInstall, install, installed, checked } = useInstallPrompt();
-  const { settings } = useHope();
-  const pushEnabled = useQuery(api.push.myPushEnabled);
-  const [dismissed, setDismissed] = useState(false);
-  const [busy, setBusy] = useState(false);
-  // Users who already enabled phone notifications have the app — never nag them.
-  if (installed || pushEnabled || dismissed || !checked) return null;
-
-  const apkUrl = settings?.appDownloadUrl?.trim();
-
-  const doInstall = async () => {
-    if (apkUrl) {
-      // Direct APK download — the small file downloads, the phone offers to
-      // install it, and the banner disappears.
-      const a = document.createElement("a");
-      a.href = apkUrl;
-      a.download = "";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setDismissed(true);
-      toast.success("APK download started — install it from your downloads.");
-      return;
-    }
-    setBusy(true);
-    try {
-      const ok = await install();
-      if (ok) {
-        setDismissed(true);
-        toast.success("App installed!");
-      } else {
-        toast.error("App download link set nahi hai. Admin → Settings → App download link (APK) me daalein.");
-      }
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  return (
-    <div className="notif-slide pointer-events-none fixed inset-x-0 top-0 z-[99] flex justify-center px-3 pt-3">
-      <div className="pointer-events-auto relative w-full max-w-md overflow-hidden rounded-2xl border border-border/60 bg-background/95 shadow-[var(--shadow-elegant)] backdrop-blur-xl">
-        <span className="pointer-events-none absolute -left-10 -top-10 h-32 w-32 rounded-full bg-success/15 blur-2xl" />
-        <button
-          onClick={() => setDismissed(true)}
-          aria-label="Close"
-          className="absolute right-2.5 top-2.5 z-10 grid h-8 w-8 place-items-center rounded-xl text-muted-foreground transition hover:bg-accent hover:text-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
-        <div className="relative flex items-center gap-3 p-4 pr-11">
-          <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl gradient-brand font-display text-lg font-black text-primary-foreground shadow-lg shadow-primary/25">
-            H
-          </span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-bold">Install the HopeX app</p>
-            <p className="truncate text-[11px] text-muted-foreground">
-              {apkUrl ? "Download the app — deposits open outside, payments stay secure." : "One tap — deposits open outside the app, payments stay secure."}
-            </p>
-          </div>
-          <button
-            onClick={() => void doInstall()}
-            disabled={busy}
-            className="shrink-0 rounded-xl btn-glass btn-glass-primary px-3.5 py-2 text-xs font-black disabled:opacity-60"
-          >
-            {busy ? "…" : apkUrl ? "Download" : "Install"}
           </button>
         </div>
       </div>
@@ -552,7 +476,6 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
               </div>
             </header>
 
-            <InstallBanner />
             <PopupNotifier />
             <AnnouncementBanner />
 

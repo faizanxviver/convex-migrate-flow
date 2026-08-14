@@ -3,9 +3,6 @@ import { useAuth } from "@/hooks/use-auth";
 import { useChatUi } from "@/components/hopex/dashboard-layout";
 import { ChannelsPopup } from "@/components/hopex/channels";
 import { useHope } from "@/hooks/use-hope";
-import { useInstallPrompt } from "@/hooks/use-install";
-import { useQuery } from "convex/react";
-import { api } from "@/convex/_generated/api";
 import { useT } from "@/lib/i18n";
 import { depositBalance, money } from "@/lib/hopex";
 import {
@@ -161,9 +158,6 @@ export default function MorePage() {
         <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
       </button>
 
-      {/* Install app */}
-      <InstallAppCard />
-
       {/* Wallet */}
       <section>
         <p className="mb-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">{t("Wallet")}</p>
@@ -273,52 +267,3 @@ function Mini({ label, value, gold }: { label: string; value: string; gold?: boo
     </div>
   );
 }
-
-/** "Install the app" card — shows whenever the browser can install the PWA
- *  (Chrome/Edge/Samsung Internet). Hidden inside the installed app itself. */
-function InstallAppCard() {
-  const { canInstall, install, installed } = useInstallPrompt();
-  const { settings } = useHope();
-  const pushEnabled = useQuery(api.push.myPushEnabled);
-  // Users who already enabled phone notifications have the app — never nag them.
-  if (installed || pushEnabled) return null;
-  const apkUrl = settings?.appDownloadUrl?.trim();
-  const doInstall = async () => {
-    if (apkUrl) {
-      const a = document.createElement("a");
-      a.href = apkUrl;
-      a.download = "";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      toast.success("APK download started — install it from your downloads.");
-      return;
-    }
-    const ok = await install();
-    if (!ok) toast.error("App download link set nahi hai. Admin → Settings → App download link (APK) me daalein.");
-  };
-  return (
-    <GlassCard glow className="relative overflow-hidden p-5">
-      <div className="pointer-events-none absolute -right-14 -top-14 h-44 w-44 rounded-full bg-success/15 blur-3xl" />
-      <div className="relative flex flex-wrap items-center gap-4">
-        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl gradient-brand font-display text-xl font-black text-primary-foreground">
-          H
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="font-display text-base font-extrabold">Install the HopeX app</p>
-          <p className="text-xs text-muted-foreground">
-            Faster deposits, one-tap access, secure gateway in an external tab.
-          </p>
-        </div>
-        <button
-          onClick={() => void doInstall()}
-          className="btn-glass btn-glass-primary shrink-0 px-5 py-2.5 text-sm font-black"
-        >
-          {apkUrl ? "Download app" : "Install"}
-        </button>
-      </div>
-    </GlassCard>
-  );
-}
-
-

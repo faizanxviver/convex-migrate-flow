@@ -9,6 +9,7 @@ import {
   CalendarClock,
   Crown,
   HandCoins,
+  Info,
   Lock,
   Sparkles,
   Target,
@@ -65,13 +66,11 @@ export default function SalaryPage() {
     }
   };
 
-  const rankIndex = s.current ? s.tiers.findIndex((t) => t.rank === s.current?.rank) : -1;
-
   return (
     <div className="space-y-5 pb-20">
       <SectionTitle
         title="Weekly rank salary"
-        subtitle="Your rank depends only on your level 1 team's total investment — the more your direct team invests, the bigger your weekly salary."
+        subtitle="Your rank comes from your Level 1 team's TOTAL investment — the combined amount your direct referrals invest. No per-person targets, no team-size requirement."
       />
 
       {/* ---------- Hero ---------- */}
@@ -96,10 +95,10 @@ export default function SalaryPage() {
             <p className="pb-1.5 text-sm font-semibold text-muted-foreground">your weekly salary</p>
           </div>
 
-          {/* L1 investment → salary mapping */}
-          <div className="mt-4 inline-flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl glass-soft px-4 py-2.5 text-sm">
-            <Target className="h-4 w-4 text-primary" />
-            <span className="text-muted-foreground">L1 team invested</span>
+          {/* L1 total investment -> salary mapping */}
+          <div className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-2xl glass-soft px-4 py-2.5 text-sm">
+            <Target className="h-4 w-4 shrink-0 text-primary" />
+            <span className="text-muted-foreground">Level 1 total invested</span>
             <span className="font-black tabular-nums">{money(s.invested)}</span>
             <span className="text-muted-foreground">→</span>
             <span className="font-black text-gold">{money(s.current?.salary ?? 0)}/week</span>
@@ -125,9 +124,9 @@ export default function SalaryPage() {
           <button
             onClick={() => void claim()}
             disabled={!s.claimable || busy}
-            className="btn-glass btn-glass-primary mt-5 flex h-14 w-full items-center justify-center gap-2 text-base font-black disabled:opacity-50"
+            className="btn-glass btn-glass-primary mt-5 flex h-14 w-full items-center justify-center gap-2 px-4 text-base font-black disabled:opacity-50"
           >
-            <HandCoins className="h-5 w-5" />
+            <HandCoins className="h-5 w-5 shrink-0" />
             {s.claimable
               ? busy
                 ? "Claiming…"
@@ -139,10 +138,50 @@ export default function SalaryPage() {
 
           {s.lastClaimAt ? (
             <p className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
-              <CalendarClock className="h-3 w-3" /> Last claimed {new Date(s.lastClaimAt).toLocaleDateString()}
+              <CalendarClock className="h-3 w-3 shrink-0" /> Last claimed{" "}
+              {new Date(s.lastClaimAt).toLocaleDateString()}
             </p>
           ) : null}
         </div>
+      </GlassCard>
+
+      {/* ---------- How it works ---------- */}
+      <GlassCard className="p-5">
+        <p className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground">
+          <Info className="h-3.5 w-3.5 text-primary" /> How your salary works
+        </p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-3">
+          {[
+            {
+              icon: UsersRound,
+              title: "1. Invite friends",
+              desc: "Anyone you invite joins your Level 1 team.",
+            },
+            {
+              icon: TrendingUp,
+              title: "2. They invest",
+              desc: "Every rupee your Level 1 team invests is added together.",
+            },
+            {
+              icon: Crown,
+              title: "3. Weekly salary",
+              desc: "The combined total unlocks your rank and its weekly salary.",
+            },
+          ].map((step) => (
+            <div key={step.title} className="rounded-2xl glass-soft p-4">
+              <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary/15 text-primary">
+                <step.icon className="h-4 w-4" />
+              </span>
+              <p className="mt-2 text-sm font-bold">{step.title}</p>
+              <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{step.desc}</p>
+            </div>
+          ))}
+        </div>
+        <p className="mt-3 rounded-xl bg-gold/10 px-3 py-2 text-[11px] leading-relaxed text-muted-foreground">
+          Example: 5 friends investing Rs 1,000 each = Rs 5,000 Level 1 total → Bronze rank →
+          Rs 500/week. It is the <b className="text-foreground">combined total</b> that counts —
+          not how many people joined.
+        </p>
       </GlassCard>
 
       {/* ---------- Rank ladder ---------- */}
@@ -205,19 +244,19 @@ export default function SalaryPage() {
       <div className="grid grid-cols-3 gap-3">
         <GlassCard className="p-4">
           <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-            <Target className="h-3 w-3" /> L1 investment
+            <Target className="h-3 w-3 shrink-0" /> L1 total
           </p>
           <p className="mt-1 truncate font-display text-lg font-black">{money(s.invested)}</p>
         </GlassCard>
         <GlassCard className="p-4">
           <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-            <TrendingUp className="h-3 w-3" /> Salary cycle
+            <CalendarClock className="h-3 w-3 shrink-0" /> Cycle
           </p>
           <p className="mt-1 font-display text-lg font-black">{cyclePct}%</p>
         </GlassCard>
         <GlassCard className="p-4">
           <p className="flex items-center gap-1.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-            <TrendingUp className="h-3 w-3" /> Next rank
+            <Crown className="h-3 w-3 shrink-0" /> Next rank
           </p>
           <p className="mt-1 truncate font-display text-lg font-black">{s.next ? s.next.rank : "Max"}</p>
         </GlassCard>
@@ -225,11 +264,11 @@ export default function SalaryPage() {
 
       {s.next ? (
         <GlassCard>
-          <div className="flex items-center justify-between text-xs">
+          <div className="flex items-center justify-between gap-2 text-xs">
             <span className="font-bold uppercase tracking-widest text-muted-foreground">
               Progress to {s.next.rank}
             </span>
-            <span className="font-black">
+            <span className="font-black tabular-nums">
               {money(s.invested)} / {money(s.next.invested)}
             </span>
           </div>
@@ -239,9 +278,12 @@ export default function SalaryPage() {
               style={{ width: `${Math.min(100, (s.invested / Math.max(1, s.next.invested)) * 100)}%` }}
             />
           </div>
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            Still needed: <span className="font-bold text-foreground">{money(Math.max(0, s.next.invested - s.invested))}</span>{" "}
-            of L1 investment to unlock {money(s.next.salary)}/week
+          <p className="mt-2 text-[11px] leading-relaxed text-muted-foreground">
+            Your Level 1 team needs{" "}
+            <span className="font-bold text-foreground">
+              {money(Math.max(0, s.next.invested - s.invested))}
+            </span>{" "}
+            more total investment to unlock {s.next.rank} · {money(s.next.salary)}/week
           </p>
         </GlassCard>
       ) : null}
@@ -271,11 +313,11 @@ export default function SalaryPage() {
                   <div className="flex items-center justify-between gap-2">
                     <p className="flex items-center gap-2 font-display text-base font-extrabold">
                       {isCurrent ? (
-                        <Crown className="h-4 w-4 text-gold" />
+                        <Crown className="h-4 w-4 shrink-0 text-gold" />
                       ) : reached ? (
-                        <BadgeCheck className="h-4 w-4 text-success" />
+                        <BadgeCheck className="h-4 w-4 shrink-0 text-success" />
                       ) : (
-                        <Lock className="h-4 w-4 text-muted-foreground" />
+                        <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />
                       )}
                       {tier.rank}
                       {isCurrent ? (
@@ -291,9 +333,9 @@ export default function SalaryPage() {
                   </div>
 
                   <div className="mt-3">
-                    <div className="flex justify-between text-[11px] text-muted-foreground">
-                      <span>L1 investment needed</span>
-                      <span className="font-bold">
+                    <div className="flex justify-between gap-2 text-[11px] text-muted-foreground">
+                      <span>Level 1 total investment needed</span>
+                      <span className="font-bold tabular-nums">
                         {money(Math.min(s.invested, tier.invested))} / {money(tier.invested)}
                       </span>
                     </div>
@@ -309,11 +351,11 @@ export default function SalaryPage() {
                     onClick={() => void claim()}
                     disabled={(!canClaim && (!reached || !isCurrent)) || busy}
                     className={cn(
-                      "btn-glass mt-3 flex h-11 w-full items-center justify-center gap-2 text-xs font-black",
+                      "btn-glass mt-3 flex h-11 w-full items-center justify-center gap-2 px-4 text-xs font-black",
                       canClaim ? "btn-glass-primary" : "text-muted-foreground disabled:opacity-60",
                     )}
                   >
-                    <HandCoins className="h-4 w-4" />
+                    <HandCoins className="h-4 w-4 shrink-0" />
                     {canClaim
                       ? "Claim salary"
                       : !reached
@@ -331,9 +373,9 @@ export default function SalaryPage() {
 
       <Link
         to="/dashboard/referrals"
-        className="btn-glass flex h-12 items-center justify-center gap-2 text-sm font-semibold text-foreground"
+        className="btn-glass flex h-12 items-center justify-center gap-2 px-4 text-sm font-semibold text-foreground"
       >
-        <UsersRound className="h-4 w-4" /> Invite friends — their investments raise your rank
+        <UsersRound className="h-4 w-4 shrink-0" /> Invite friends — their combined investments raise your rank
       </Link>
     </div>
   );

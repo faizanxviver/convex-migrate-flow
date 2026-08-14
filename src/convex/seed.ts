@@ -145,6 +145,11 @@ export const seedReferenceData = mutation({
           "investment platform, daily roi, hopex, referral program, pakistan investment",
         ogImage: undefined,
         appDownloadUrl: undefined,
+        popupEnabled: true,
+        popupTitle: "Your daily income is working for you",
+        popupSubtitle:
+          "Every active plan credits earnings automatically every 24 hours — check your balance below.",
+        popupButtonText: "Continue to Dashboard",
         supportWhatsapp: "",
         minDeposit: 300,
         minWithdraw: 50,

@@ -18,12 +18,11 @@ import {
   Moon,
   ShieldHalf,
   Sun,
-  UserRound,
   UsersRound,
   WalletMinimal,
   X,
 } from "lucide-react";
-import { useMutation } from "convex/react";
+import { useMutation, useQuery } from "convex/react";
 import {
   createContext,
   useContext,
@@ -133,7 +132,7 @@ function PopupNotifier() {
   const [current, setCurrent] = useState<Doc<"notifications"> | null>(null);
   const [queue, setQueue] = useState<Doc<"notifications">[]>([]);
 
-  // Push newly-arrived popup notifications into the queue.
+  // Push newly-arrived popup notifications into the queue (once per session).
   useEffect(() => {
     for (const n of notifications) {
       if (!n.popup || n.read || seenPopupIds.has(n._id)) continue;
@@ -142,13 +141,13 @@ function PopupNotifier() {
     }
   }, [notifications]);
 
-  // Show one at a time, auto-dismiss after 6s.
+  // Show one at a time, auto-dismiss after 8s.
   useEffect(() => {
     if (current || queue.length === 0) return;
     const next = queue[0];
     setCurrent(next);
     setQueue((q) => q.slice(1));
-    const t = setTimeout(() => setCurrent(null), 6000);
+    const t = setTimeout(() => setCurrent(null), 8000);
     return () => clearTimeout(t);
   }, [current, queue]);
 
@@ -164,36 +163,72 @@ function PopupNotifier() {
         : current.kind === "danger"
           ? "bg-destructive/15 text-destructive"
           : "bg-primary/15 text-primary";
-  const kindIcon =
-    current.kind === "success" ? "✓" : current.kind === "warning" ? "!" : current.kind === "danger" ? "✕" : "✦";
+  const kindLabel =
+    current.kind === "success"
+      ? "Success"
+      : current.kind === "warning"
+        ? "Important"
+        : current.kind === "danger"
+          ? "Alert"
+          : "Announcement";
 
   return (
     <div className="pointer-events-none fixed inset-x-0 top-0 z-[100] flex justify-center px-3 pt-3">
-      <div className="notif-slide pointer-events-auto relative w-full max-w-md overflow-hidden rounded-2xl border border-border/60 bg-background/95 shadow-[var(--shadow-elegant)] backdrop-blur-xl">
-        <span className="pointer-events-none absolute -left-10 -top-10 h-32 w-32 rounded-full bg-primary/15 blur-2xl" />
-        <button
-          onClick={() => setCurrent(null)}
-          aria-label="Close"
-          className="absolute right-2.5 top-2.5 z-10 grid h-8 w-8 place-items-center rounded-xl text-muted-foreground transition hover:bg-accent hover:text-foreground"
-        >
-          <X className="h-4 w-4" />
-        </button>
-        <div className="relative flex items-start gap-3 p-4 pr-11">
+      <div className="notif-slide pointer-events-auto w-full max-w-md overflow-hidden rounded-2xl border border-border/60 bg-background/95 shadow-[var(--shadow-elegant)] backdrop-blur-xl">
+        {/* header row */}
+        <div className="flex items-center gap-3 border-b border-border/50 px-4 py-3">
           {current.image ? (
-            <img src={current.image} alt="" className="h-12 w-12 shrink-0 rounded-xl object-cover ring-1 ring-border/60" />
+            <img
+              src={current.image}
+              alt=""
+              className="h-10 w-10 shrink-0 rounded-xl object-cover ring-1 ring-border/60"
+            />
           ) : (
-            <span className="grid h-12 w-12 shrink-0 place-items-center overflow-hidden rounded-xl gradient-brand font-display text-lg font-black text-primary-foreground">
+            <span className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl gradient-brand font-display text-base font-black text-primary-foreground">
               {logo ? <img src={logo} alt={`${name} logo`} className="h-full w-full object-cover" /> : name[0]}
             </span>
           )}
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.16em] text-muted-foreground">
-              <span className={`inline-grid h-4 w-4 place-items-center rounded-full ${kindTone}`}>{kindIcon}</span>
-              {name}
-            </p>
-            <p className="mt-0.5 truncate text-sm font-bold">{current.title}</p>
-            <p className="mt-0.5 line-clamp-2 whitespace-pre-line text-xs text-muted-foreground">{current.body}</p>
+            <p className="truncate text-sm font-black">{name}</p>
+            <p className="truncate text-[11px] text-muted-foreground">now</p>
           </div>
+          <span className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wider ${kindTone}`}>
+            {kindLabel}
+          </span>
+          <button
+            onClick={() => setCurrent(null)}
+            aria-label="Close"
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-muted-foreground transition hover:bg-accent hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* body — every detail on its own line, nothing truncated */}
+        <div className="space-y-2 px-4 py-3">
+          <p className="text-[15px] font-extrabold leading-snug break-words">{current.title}</p>
+          <p className="text-[13px] leading-relaxed whitespace-pre-line break-words text-muted-foreground">
+            {current.body}
+          </p>
+        </div>
+
+        {/* actions — full-width buttons that never overflow on small phones */}
+        <div className="flex flex-col gap-2 border-t border-border/50 px-4 py-3 sm:flex-row">
+          <button
+            onClick={() => {
+              setCurrent(null);
+              window.dispatchEvent(new CustomEvent("hopex:open-notifications"));
+            }}
+            className="btn-glass flex h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-black text-foreground sm:w-auto sm:flex-1"
+          >
+            <BellRing className="h-4 w-4" /> View details
+          </button>
+          <button
+            onClick={() => setCurrent(null)}
+            className="btn-glass btn-glass-primary flex h-11 w-full items-center justify-center gap-2 rounded-xl px-4 text-sm font-black sm:w-auto sm:flex-1"
+          >
+            Got it
+          </button>
         </div>
       </div>
     </div>
@@ -205,6 +240,7 @@ function PopupNotifier() {
 function InstallBanner() {
   const { canInstall, install, installed, checked } = useInstallPrompt();
   const { settings } = useHope();
+  const pushEnabled = useQuery(api.push.myPushEnabled);
   const [dismissed, setDismissed] = useState(false);
   const [busy, setBusy] = useState(false);
   // Auto-hide after 10s so it never gets in the way.
@@ -212,7 +248,8 @@ function InstallBanner() {
     const t = setTimeout(() => setDismissed(true), 10000);
     return () => clearTimeout(t);
   }, []);
-  if (installed || dismissed || !checked) return null;
+  // Users who already enabled phone notifications have the app — never nag them.
+  if (installed || pushEnabled || dismissed || !checked) return null;
 
   const apkUrl = settings?.appDownloadUrl?.trim();
 
@@ -490,13 +527,6 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
                             <p className="truncate text-sm font-bold">{profile.name}</p>
                             <p className="truncate text-xs text-muted-foreground">{profile.phone || user.email}</p>
                           </div>
-                          <Link
-                            to="/dashboard/profile"
-                            onClick={() => setProfileOpen(false)}
-                            className="flex items-center gap-2.5 px-4 py-3 text-sm font-semibold transition hover:bg-accent/60"
-                          >
-                            <UserRound className="h-4 w-4 text-muted-foreground" /> My Profile
-                          </Link>
                           <button
                             onClick={() => {
                               setProfileOpen(false);

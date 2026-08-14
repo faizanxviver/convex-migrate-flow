@@ -100,14 +100,21 @@ export function DashboardPopup() {
 
   useEffect(() => {
     // Every dashboard visit — no session gate, per the owner's request.
+    // Skipped entirely when the admin turns the popup off.
+    if (settings?.popupEnabled === false) return;
     const t = setTimeout(() => setOpen(true), 1200);
     return () => clearTimeout(t);
-  }, []);
+  }, [settings?.popupEnabled]);
 
   if (!open) return null;
 
   const name = settings?.siteName || "HopeX";
   const logo = settings?.siteLogo;
+  const popupTitle = settings?.popupTitle?.trim() || "Your daily income is working for you";
+  const popupSubtitle =
+    settings?.popupSubtitle?.trim() ||
+    "Every active plan credits earnings automatically every 24 hours — check your balance below.";
+  const popupButtonText = settings?.popupButtonText?.trim() || "Continue to Dashboard";
   const featured = plans.filter((p) => p.active).slice(0, 3);
   const group = channels?.find((c) => c.kind === "group");
   const channel = channels?.find((c) => c.kind === "channel");
@@ -135,12 +142,11 @@ export function DashboardPopup() {
           <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-gold/15 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-gold">
             <Sparkles className="h-3 w-3" /> Welcome back to {name}
           </p>
-          <h2 className="mt-2 font-display text-2xl font-black">
-            Your daily income is <span className="text-gradient">working for you</span>
+          <h2 className="mt-2 font-display text-2xl font-black leading-snug break-words">
+            {popupTitle}
           </h2>
-          <p className="mx-auto mt-1.5 max-w-sm text-xs text-muted-foreground">
-            Every active plan credits earnings automatically every 24 hours — check your balance
-            below.
+          <p className="mx-auto mt-1.5 max-w-sm text-xs leading-relaxed text-muted-foreground">
+            {popupSubtitle}
           </p>
         </div>
 
@@ -218,9 +224,9 @@ export function DashboardPopup() {
           </Link>
           <button
             onClick={() => setOpen(false)}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl btn-glass btn-glass-primary text-sm font-black"
+            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl btn-glass btn-glass-primary px-4 text-sm font-black"
           >
-            <Rocket className="h-4 w-4" /> Continue to Dashboard
+            <Rocket className="h-4 w-4 shrink-0" /> {popupButtonText}
           </button>
           {support ? (
             <a

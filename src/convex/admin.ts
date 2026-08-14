@@ -389,6 +389,10 @@ export const adminUpdateSettings = mutation({
     seoKeywords: v.optional(v.string()),
     ogImage: v.optional(v.string()),
     siteFavicon: v.optional(v.string()),
+    popupEnabled: v.optional(v.boolean()),
+    popupTitle: v.optional(v.string()),
+    popupSubtitle: v.optional(v.string()),
+    popupButtonText: v.optional(v.string()),
   },
   handler: async (ctx, patch) => {
     const admin = await requireAdmin(ctx);

@@ -1,5 +1,5 @@
 import { api } from "@/convex/_generated/api";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import { useCallback, useEffect, useState } from "react";
 
 /**
@@ -10,6 +10,9 @@ import { useCallback, useEffect, useState } from "react";
 export function usePush() {
   const save = useMutation(api.push.savePushSubscription);
   const remove = useMutation(api.push.userDeletePushSubscription);
+  // The public VAPID key comes from the backend (Keys tab, VAPID_PUBLIC_KEY)
+  // so the browser can build a valid subscription without a build-time env var.
+  const getVapidKey = useAction(api.pushNode.getVapidPublicKey);
   const [permission, setPermission] = useState<NotificationPermission | "unsupported">(
     () => (typeof Notification === "undefined" ? "unsupported" : Notification.permission),
   );
@@ -35,6 +38,13 @@ export function usePush() {
   /** Ask for permission + register + save. Returns true on success. */
   const enable = useCallback(async (): Promise<boolean> => {
     if (typeof Notification === "undefined" || !("serviceWorker" in navigator)) return false;
+    let key = "";
+    try {
+      key = (await getVapidKey()) ?? "";
+    } catch {
+      key = "";
+    }
+    if (!key.trim()) return false; // keys not set yet
     try {
       let perm = Notification.permission;
       if (perm === "default") {
@@ -46,12 +56,7 @@ export function usePush() {
       await navigator.serviceWorker.ready;
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: urlBase64ToUint8Array(
-          // Public VAPID key — supplied by the owner via env; falls back to a
-          // placeholder that keeps the UI working until real keys are added.
-          (import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined) ??
-            "BEl62iUYgUivxIkv69yViEuiBIaIBK5fW0RBK3IkF7qPp9xY3Zx0j2f8VvCxLf0b2xZ2q7F3iY0R6j8Jg6s7h9T",
-        ),
+        applicationServerKey: urlBase64ToUint8Array(key.trim()),
       });
       const json = sub.toJSON();
       if (!json.endpoint || !json.keys) return false;
@@ -65,7 +70,7 @@ export function usePush() {
     } catch {
       return false;
     }
-  }, [save]);
+  }, [save, getVapidKey]);
 
   /** Unsubscribe + remove from the server. */
   const disable = useCallback(async () => {

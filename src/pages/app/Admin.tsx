@@ -2346,17 +2346,33 @@ function BroadcastPanel() {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [image, setImage] = useState("");
-  const [target, setTarget] = useState("all");
+  const [target, setTarget] = useState<"all" | "specific">("all");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [search, setSearch] = useState("");
   const [pushPhones, setPushPhones] = useState(true);
   const [busy, setBusy] = useState(false);
   const sendPush = useAction(api.pushNode.adminSendPush);
 
+  const filtered = users.filter((u) =>
+    search.trim() ? `${u.name} ${u.phone ?? ""} ${u.email ?? ""}`.toLowerCase().includes(search.toLowerCase()) : true,
+  );
+
+  const toggleUser = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   const send = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !body.trim()) return toast.error("Title and message are required.");
+    if (target === "specific" && selected.size === 0) return toast.error("Select at least one user.");
     setBusy(true);
     try {
-      const userIds = target === "all" ? undefined : ([target] as Id<"users">[]);
+      const userIds = target === "all" ? undefined : (Array.from(selected) as Id<"users">[]);
       const n = await broadcast({
         title: title.trim(),
         body: body.trim(),
@@ -2367,18 +2383,19 @@ function BroadcastPanel() {
       let pushInfo = "";
       if (pushPhones) {
         try {
-          const devices = await sendPush({ title: title.trim(), body: body.trim() });
+          const devices = await sendPush({ title: title.trim(), body: body.trim(), userIds });
           pushInfo = ` + ${devices} phone push`;
-        } catch (e) {
-          pushInfo = " (push failed: " + (e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "no keys") + ")";
+        } catch (err) {
+          pushInfo = " (push failed: " + (err instanceof Error ? err.message.replace(/^.*?:\s*/, "") : "no keys") + ")";
         }
       }
       toast.success(`Sent to ${n} user(s)${pushInfo}.`);
       setTitle("");
       setBody("");
       setImage("");
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message.replace(/^.*?:\s*/, "") : "Could not send");
+      setSelected(new Set());
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message.replace(/^.*?:\s*/, "") : "Could not send");
     } finally {
       setBusy(false);
     }
@@ -2390,14 +2407,61 @@ function BroadcastPanel() {
         <Megaphone className="h-5 w-5 text-primary" /> Broadcast a notification
       </h2>
       <form onSubmit={send} className="mt-4 space-y-3">
-        <select value={target} onChange={(e) => setTarget(e.target.value)} className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none">
-          <option value="all">All users</option>
-          {users.map((u) => (
-            <option key={u.userId} value={u.userId}>
-              {u.name} — {u.phone ?? u.email}
-            </option>
+        <div className="grid grid-cols-2 gap-2 rounded-2xl bg-secondary/50 p-1">
+          {(["all", "specific"] as const).map((t) => (
+            <button
+              type="button"
+              key={t}
+              onClick={() => setTarget(t)}
+              className={cn(
+                "rounded-xl py-2 text-center text-sm font-semibold transition",
+                target === t ? "gradient-cool text-primary-foreground shadow" : "text-muted-foreground",
+              )}
+            >
+              {t === "all" ? "All users" : "Specific users"}
+            </button>
           ))}
-        </select>
+        </div>
+
+        {target === "specific" ? (
+          <div className="rounded-2xl border border-border/60 p-3">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search users…"
+              className="h-10 w-full rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
+            />
+            <div className="mt-2 max-h-44 space-y-1 overflow-y-auto pr-1">
+              {filtered.map((u) => {
+                const on = selected.has(u.userId);
+                return (
+                  <label
+                    key={u.userId}
+                    className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 transition hover:bg-accent/40"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => toggleUser(u.userId)}
+                      className="h-4 w-4 shrink-0 accent-[var(--primary)]"
+                    />
+                    <span className="min-w-0 flex-1 truncate text-sm font-semibold">{u.name}</span>
+                    <span className="shrink-0 truncate text-[11px] text-muted-foreground">
+                      {u.phone ?? u.email ?? ""}
+                    </span>
+                  </label>
+                );
+              })}
+              {filtered.length === 0 ? (
+                <p className="p-3 text-center text-xs text-muted-foreground">No users found.</p>
+              ) : null}
+            </div>
+            <p className="mt-1.5 text-[11px] font-semibold text-muted-foreground">
+              {selected.size} selected
+            </p>
+          </div>
+        ) : null}
+
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
@@ -3049,6 +3113,7 @@ function SettingsPanel() {
 
       <BrandingSettings settings={settings} set={set} pickLogo={pickLogo} busy={busy} />
       <AnnouncementSettings settings={settings} set={set} />
+      <PopupSettings settings={settings} set={set} />
       <MaintenanceSettings settings={settings} set={set} />
       <SalarySettings settings={settings} set={set} />
 
@@ -3207,6 +3272,63 @@ function AnnouncementSettings({ settings, set }: { settings: ReturnType<typeof u
         placeholder="e.g. Withdrawals are processed daily between 8am and 8pm."
         className="mt-3 w-full rounded-xl border border-input bg-background/40 p-3 text-sm outline-none"
       />
+    </div>
+  );
+}
+
+function PopupSettings({
+  settings,
+  set,
+}: {
+  settings: ReturnType<typeof useHope>["settings"];
+  set: (key: string, value: unknown) => Promise<void>;
+}) {
+  return (
+    <div className="rounded-2xl border border-border/60 p-4">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-bold">Dashboard welcome popup</p>
+        <button
+          onClick={() => void set("popupEnabled", !(settings?.popupEnabled ?? true))}
+          className={cn(
+            "rounded-full px-3 py-1 text-xs font-bold",
+            settings?.popupEnabled === false ? "bg-muted text-muted-foreground" : "bg-success/15 text-success",
+          )}
+        >
+          {settings?.popupEnabled === false ? "Off" : "Live"}
+        </button>
+      </div>
+      <p className="mt-1 text-[11px] text-muted-foreground">
+        Shown on the dashboard every visit — title, subtitle, button and the WhatsApp channels
+        below (min deposit / min withdraw come from the settings above).
+      </p>
+      <div className="mt-3 space-y-3">
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Popup title</label>
+          <input
+            defaultValue={settings?.popupTitle ?? ""}
+            onBlur={(e) => e.target.value !== (settings?.popupTitle ?? "") && void set("popupTitle", e.target.value)}
+            className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Popup subtitle</label>
+          <textarea
+            defaultValue={settings?.popupSubtitle ?? ""}
+            rows={2}
+            onBlur={(e) => e.target.value !== (settings?.popupSubtitle ?? "") && void set("popupSubtitle", e.target.value)}
+            className="w-full rounded-xl border border-input bg-background/40 p-4 text-sm outline-none"
+          />
+        </div>
+        <div>
+          <label className="mb-1.5 block text-xs font-semibold text-muted-foreground">Button text</label>
+          <input
+            defaultValue={settings?.popupButtonText ?? ""}
+            onBlur={(e) => e.target.value !== (settings?.popupButtonText ?? "") && void set("popupButtonText", e.target.value)}
+            placeholder="Continue to Dashboard"
+            className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
+          />
+        </div>
+      </div>
     </div>
   );
 }

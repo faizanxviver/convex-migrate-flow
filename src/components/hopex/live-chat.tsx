@@ -13,7 +13,6 @@ import {
   ChevronDown,
   Image as ImageIcon,
   Loader2,
-  MessageCircle,
   Mic,
   Paperclip,
   Reply,
@@ -55,7 +54,7 @@ function dayLabel(ts: number) {
 
 /** Full-screen WhatsApp-style user support chat. */
 export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { chat, profile } = useHope();
+  const { chat, profile, settings } = useHope();
   const send = useMutation(api.chat.sendUserMessage);
   const markRead = useMutation(api.chat.markUserRead);
   const clearChat = useMutation(api.chat.clearMyChat);
@@ -194,13 +193,17 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
         <button onClick={onClose} aria-label="Back" className="grid h-11 w-11 shrink-0 place-items-center rounded-full transition hover:bg-black/10">
           <ArrowLeft className="h-5 w-5" />
         </button>
-        <span className="relative grid h-10 w-10 shrink-0 place-items-center rounded-full bg-white/25 font-display text-sm font-black ring-2 ring-white/50">
-          H
+        <span className="relative grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-full bg-white/25 font-display text-sm font-black ring-2 ring-white/50">
+          {settings?.siteLogo ? (
+            <img src={settings.siteLogo} alt="" className="h-full w-full object-cover" />
+          ) : (
+            (settings?.siteName?.[0] ?? "H")
+          )}
           <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[var(--wa-header)] bg-[var(--wa-green)]" />
         </span>
         <div className="min-w-0 flex-1 leading-tight">
           <p className="flex items-center gap-1 truncate text-[15px] font-semibold">
-            HopeX Support
+            {settings?.siteName ?? "HopeX"} Support
             <BadgeCheck className="h-4 w-4 shrink-0 text-[var(--wa-green)]" />
           </p>
           <p className="flex items-center gap-1.5 truncate text-[11px] opacity-90">
@@ -298,14 +301,19 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
 
         {chat.length === 0 ? (
           <div className="flex flex-col items-center gap-3 px-6 py-12 text-center">
-            <span className="relative grid h-16 w-16 place-items-center rounded-full bg-[var(--wa-green)]/15 text-[var(--wa-green)]">
-              <span className="absolute inset-0 animate-ping rounded-full bg-[var(--wa-green)]/20" />
-              <MessageCircle className="relative h-7 w-7" />
+            <span className="relative grid h-16 w-16 place-items-center overflow-hidden rounded-full bg-white/10 ring-2 ring-white/20">
+              <span className="absolute inset-0 animate-ping rounded-full bg-[var(--wa-green)]/25" />
+              {settings?.siteLogo ? (
+                <img src={settings.siteLogo} alt="" className="relative h-full w-full object-cover" />
+              ) : (
+                <span className="relative font-display text-lg font-black">{settings?.siteName?.[0] ?? "H"}</span>
+              )}
+              <span className="absolute bottom-0.5 right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[var(--wa-panel)] bg-[var(--wa-green)]" />
             </span>
             <p className="text-sm font-semibold">Hello! 👋 How can we help?</p>
             <p className="max-w-[15rem] text-xs wa-dim">
-              This is your private chat with HopeX Support — ask about deposits, withdrawals,
-              plans or referrals.
+              This is your private chat with {settings?.siteName ?? "HopeX"} Support — ask about
+              deposits, withdrawals, plans or referrals.
             </p>
           </div>
         ) : null}
@@ -338,8 +346,12 @@ export function LiveChat({ open, onClose }: { open: boolean; onClose: () => void
                     <Reply className="h-3.5 w-3.5 wa-dim" />
                   </button>
                 ) : last ? (
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-white/80 text-[10px] font-black text-[var(--wa-teal-2)] shadow-sm">
-                    H
+                  <span className="grid h-6 w-6 shrink-0 place-items-center overflow-hidden rounded-full bg-white/80 text-[10px] font-black text-[var(--wa-teal-2)] shadow-sm">
+                    {settings?.siteLogo ? (
+                      <img src={settings.siteLogo} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      (settings?.siteName?.[0] ?? "H")
+                    )}
                   </span>
                 ) : (
                   <span className="w-6 shrink-0" />

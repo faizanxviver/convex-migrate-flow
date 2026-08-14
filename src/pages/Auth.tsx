@@ -2,7 +2,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { rememberReferral } from "@/hooks/use-hope";
 import { type Value } from "convex/values";
 import { Gift, Loader2, Lock, Phone, User as UserIcon } from "lucide-react";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -56,6 +56,27 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
     password: "",
     ref: searchParams.get("ref") ?? "",
   });
+  // Set right after a successful signIn so we can wait for the auth state to
+  // propagate to the provider before navigating (otherwise RequireAuth bounces
+  // the user straight back to /auth and they have to sign in twice).
+  const [pendingNav, setPendingNav] = useState<string | null>(null);
+
+  // Navigate once the auth provider confirms we're signed in.
+  useEffect(() => {
+    if (!pendingNav) return;
+    if (isAuthenticated) {
+      setPendingNav(null);
+      navigate(pendingNav, { replace: true });
+      return;
+    }
+    // Fallback: if the auth state never flips within 6s, navigate anyway —
+    // the session is already established on the server by then.
+    const t = setTimeout(() => {
+      setPendingNav(null);
+      navigate(pendingNav, { replace: true });
+    }, 6000);
+    return () => clearTimeout(t);
+  }, [pendingNav, isAuthenticated, navigate]);
 
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -104,7 +125,9 @@ function Auth({ redirectAfterAuth }: AuthProps = {}) {
         });
         toast.success("Welcome back!");
       }
-      navigate(redirect);
+      // Don't navigate immediately — wait for the auth provider to confirm.
+      setLoading(false);
+      setPendingNav(redirect);
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Something went wrong";
       toast.error(

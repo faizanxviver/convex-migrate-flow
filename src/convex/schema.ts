@@ -92,6 +92,11 @@ const settingsFields = {
   seoKeywords: v.string(),
   ogImage: v.optional(v.string()),
   appDownloadUrl: v.optional(v.string()),
+  // Dashboard welcome popup — content editable by the admin.
+  popupEnabled: v.boolean(),
+  popupTitle: v.string(),
+  popupSubtitle: v.string(),
+  popupButtonText: v.string(),
   supportWhatsapp: v.string(),
   minDeposit: v.number(),
   minWithdraw: v.number(),

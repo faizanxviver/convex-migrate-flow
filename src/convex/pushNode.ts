@@ -3,18 +3,31 @@
 import { v } from "convex/values";
 import { action } from "./_generated/server";
 import { internal } from "./_generated/api";
-import { logAudit } from "./helpers";
 import webpush from "web-push";
 
+/** Public VAPID key so the browser can subscribe. Stored once in the Keys tab
+ *  as VAPID_PUBLIC_KEY and served to the app at runtime — no VITE_ duplicate.
+ *  (Node runtime files can only expose actions, hence the action type.) */
+export const getVapidPublicKey = action({
+  args: {},
+  handler: () => process.env.VAPID_PUBLIC_KEY ?? "",
+});
+
 /**
- * Admin: send a push notification to every subscribed phone — even when the
- * app is closed (web push is delivered by the browser/Android even offline).
+ * Admin: send a push notification to subscribed phones — even when the app is
+ * closed (web push is delivered by the browser/Android even offline). When
+ * `userIds` is omitted it goes to every subscribed device.
  * Requires VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY / VAPID_SUBJECT in env
  * (set them in the Freebuff Keys tab).
  */
 export const adminSendPush = action({
-  args: { title: v.string(), body: v.string(), url: v.optional(v.string()) },
-  handler: async (ctx, { title, body, url }) => {
+  args: {
+    title: v.string(),
+    body: v.string(),
+    url: v.optional(v.string()),
+    userIds: v.optional(v.array(v.id("users"))),
+  },
+  handler: async (ctx, { title, body, url, userIds }) => {
     const isAdmin = await ctx.runQuery(internal.push.isAdmin, {});
     if (!isAdmin) throw new Error("Forbidden");
     // Read the keys from the environment (Freebuff Keys tab / Convex env).
@@ -27,7 +40,7 @@ export const adminSendPush = action({
       );
     }
 
-    const subs = await ctx.runQuery(internal.push.listSubscriptions, {});
+    const subs = await ctx.runQuery(internal.push.listSubscriptions, { userIds });
     if (subs.length === 0) return 0;
 
     webpush.setVapidDetails(subject, publicKey, privateKey);

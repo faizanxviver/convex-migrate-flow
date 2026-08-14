@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { internalMutation, internalQuery, mutation } from "./_generated/server";
+import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { getUserId, requireUser } from "./helpers";
 
 /** Internal: is the signed-in user an admin? (used by the node action) */
@@ -56,11 +56,14 @@ export const userDeletePushSubscription = mutation({
   },
 });
 
-/** True when the signed-in user has a saved subscription. */
-export const myPushEnabled = mutation({
+/** True when the signed-in user has a saved push subscription — used to hide
+ *  the "install the app / download APK" prompts from users who already have
+ *  notifications on their phone. */
+export const myPushEnabled = query({
   args: {},
   handler: async (ctx) => {
-    const userId = await requireUser(ctx);
+    const userId = await getUserId(ctx);
+    if (userId === null) return false;
     const rows = await ctx.db
       .query("pushSubscriptions")
       .withIndex("by_user", (q) => q.eq("userId", userId))
@@ -69,16 +72,18 @@ export const myPushEnabled = mutation({
   },
 });
 
-/** Internal: every saved subscription (used by the send action). */
+/** Internal: subscriptions, optionally limited to specific users. */
 export const listSubscriptions = internalQuery({
-  args: {},
-  handler: async (ctx) => {
+  args: { userIds: v.optional(v.array(v.id("users"))) },
+  handler: async (ctx, { userIds }) => {
     const rows = await ctx.db.query("pushSubscriptions").collect();
-    return rows.map((r) => ({
-      endpoint: r.endpoint,
-      p256dh: r.p256dh,
-      auth: r.auth,
-    }));
+    return rows
+      .filter((r) => (userIds && userIds.length ? userIds.includes(r.userId) : true))
+      .map((r) => ({
+        endpoint: r.endpoint,
+        p256dh: r.p256dh,
+        auth: r.auth,
+      }));
   },
 });
 

@@ -1,8 +1,11 @@
 import { GlassCard, SectionTitle } from "@/components/hopex/glass";
 import { useAuth } from "@/hooks/use-auth";
 import { useChatUi } from "@/components/hopex/dashboard-layout";
+import { ChannelsPopup } from "@/components/hopex/channels";
 import { useHope } from "@/hooks/use-hope";
 import { useInstallPrompt } from "@/hooks/use-install";
+import { useQuery } from "convex/react";
+import { api } from "@/convex/_generated/api";
 import { useT } from "@/lib/i18n";
 import { depositBalance, money } from "@/lib/hopex";
 import {
@@ -23,6 +26,7 @@ import {
   Ticket,
   TrendingUp,
   Trophy,
+  UsersRound,
   Wallet,
   WalletMinimal,
 } from "lucide-react";
@@ -36,6 +40,7 @@ export default function MorePage() {
   const { setOpen } = useChatUi();
   const { t } = useT(profile?.language ?? "en");
   const navigate = useNavigate();
+  const [channelsOpen, setChannelsOpen] = useState(false);
 
   if (!profile) return null;
   const hasPlan = investments.some((i) => i.userId === profile.userId);
@@ -139,6 +144,23 @@ export default function MorePage() {
         <span className="h-2.5 w-2.5 shrink-0 animate-pulse rounded-full bg-success" />
       </button>
 
+      {/* Channels & groups */}
+      <button
+        onClick={() => setChannelsOpen(true)}
+        className="glass flex w-full items-center gap-3 rounded-2xl p-4 text-left transition hover:-translate-y-0.5"
+      >
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[#25D366]/15 text-[#25D366]">
+          <UsersRound className="h-5 w-5" />
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-semibold">Channels &amp; Groups</span>
+          <span className="block truncate text-xs text-muted-foreground">
+            WhatsApp community links, updates &amp; support
+          </span>
+        </span>
+        <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+      </button>
+
       {/* Install app */}
       <InstallAppCard />
 
@@ -237,6 +259,8 @@ export default function MorePage() {
       >
         <LogOut className="h-4 w-4" /> {t("Sign out")}
       </button>
+
+      <ChannelsPopup open={channelsOpen} onClose={() => setChannelsOpen(false)} />
     </div>
   );
 }
@@ -255,7 +279,9 @@ function Mini({ label, value, gold }: { label: string; value: string; gold?: boo
 function InstallAppCard() {
   const { canInstall, install, installed } = useInstallPrompt();
   const { settings } = useHope();
-  if (installed) return null;
+  const pushEnabled = useQuery(api.push.myPushEnabled);
+  // Users who already enabled phone notifications have the app — never nag them.
+  if (installed || pushEnabled) return null;
   const apkUrl = settings?.appDownloadUrl?.trim();
   const doInstall = async () => {
     if (apkUrl) {

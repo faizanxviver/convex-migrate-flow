@@ -2,7 +2,15 @@ import { api } from "@/convex/_generated/api";
 import { GlassCard, SectionTitle } from "@/components/hopex/glass";
 import { CommunityLinks } from "@/components/hopex/community";
 import { useHope } from "@/hooks/use-hope";
-import { depositBalance, money, planDaily, round2, type Plan } from "@/lib/hopex";
+import {
+  depositBalance,
+  investableBalance,
+  money,
+  planDaily,
+  round2,
+  withdrawableBalance,
+  type Plan,
+} from "@/lib/hopex";
 import { useMutation } from "convex/react";
 import { ShieldCheck, Wallet2 } from "lucide-react";
 import { useState } from "react";
@@ -25,6 +33,8 @@ export default function PlansPage() {
 
   if (!profile) return null;
   const deposited = depositBalance(transactions, profile.userId);
+  const investable = investableBalance(profile.balance, transactions, profile.invested, profile.userId);
+  const withdrawable = withdrawableBalance(profile.balance, transactions, profile.userId);
 
   const price = active ? active.minAmount : 0;
   const daily = active ? planDaily(active) : 0;
@@ -32,7 +42,8 @@ export default function PlansPage() {
 
   const invest = async () => {
     if (!active) return;
-    if (price > profile.balance) return toast.error("Insufficient balance. Please deposit first.");
+    if (price > investable)
+      return toast.error("Insufficient deposit balance. Please deposit more to activate this plan.");
     setBusy(true);
     try {
       await buyPlan({ planId: active.slug, amount: price });
@@ -52,15 +63,17 @@ export default function PlansPage() {
       <div className="mb-5 grid grid-cols-2 gap-3">
         <GlassCard className="p-4">
           <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">
-            <Wallet2 className="h-3.5 w-3.5" /> Available balance
+            <Wallet2 className="h-3.5 w-3.5" /> Deposit balance
           </p>
-          <p className="mt-1 truncate font-display text-xl font-extrabold">{money(profile.balance)}</p>
+          <p className="mt-1 truncate font-display text-xl font-extrabold">{money(deposited)}</p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">Funds your plans</p>
         </GlassCard>
         <GlassCard className="p-4">
           <p className="flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">
-            <ShieldCheck className="h-3.5 w-3.5" /> Deposit balance
+            <ShieldCheck className="h-3.5 w-3.5" /> Withdraw balance
           </p>
-          <p className="mt-1 truncate font-display text-xl font-extrabold text-gold">{money(deposited)}</p>
+          <p className="mt-1 truncate font-display text-xl font-extrabold text-gold">{money(withdrawable)}</p>
+          <p className="mt-0.5 text-[10px] text-muted-foreground">Your earnings</p>
         </GlassCard>
       </div>
 
@@ -69,7 +82,7 @@ export default function PlansPage() {
           .filter((p) => p.active)
           .map((p) => {
             const d = planDaily(p);
-            const affordable = profile.balance >= p.minAmount;
+            const affordable = investable >= p.minAmount;
             const gradient = PLAN_GRADIENTS[p.slug] ?? PLAN_GRADIENTS.starter;
             return (
               <GlassCard key={p.slug} className="group flex flex-col overflow-hidden p-0">
@@ -139,7 +152,7 @@ export default function PlansPage() {
               <Row label="Total return" value={money(total)} accent />
             </div>
             <p className="mt-3 text-xs text-muted-foreground">
-              {money(price)} will be deducted from your balance and your first daily income is
+              {money(price)} is funded from your deposit balance and your first daily income is
               credited instantly. Active plans cannot be cancelled.
             </p>
             <div className="mt-6 flex gap-3">

@@ -1,15 +1,13 @@
 import { api } from "@/convex/_generated/api";
 import { useHope } from "@/hooks/use-hope";
-import { depositBalance, money, pendingDeposits, withdrawableBalance } from "@/lib/hopex";
+import { money, pendingDeposits } from "@/lib/hopex";
 import { cn } from "@/lib/utils";
 import { useMutation } from "convex/react";
 import {
   ArrowDownLeft,
   ArrowRight,
-  BadgeCheck,
   Clock,
   Loader2,
-  Lock,
   ShieldCheck,
   Sparkles,
   Wallet,
@@ -30,9 +28,7 @@ export default function DepositPage() {
 
   const quick = settings?.quickAmounts?.length ? settings.quickAmounts : [1000, 3000, 5000, 10000, 25000, 50000];
   const minDeposit = settings?.minDeposit ?? 1000;
-  const deposited = depositBalance(transactions, profile.userId);
   const pending = pendingDeposits(transactions, profile.userId);
-  const withdrawable = withdrawableBalance(profile.balance, transactions, profile.userId);
 
   const openGateway = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,9 +111,9 @@ export default function DepositPage() {
           <div className="mt-5 grid grid-cols-2 gap-3">
             <div className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 backdrop-blur">
               <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-primary-foreground/70">
-                <Wallet className="h-3 w-3" /> Deposit balance
+                <Wallet className="h-3 w-3" /> Total balance
               </p>
-              <p className="mt-1 font-display text-xl font-black sm:text-2xl">{money(deposited)}</p>
+              <p className="mt-1 font-display text-xl font-black sm:text-2xl">{money(profile.balance)}</p>
             </div>
             <div className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 backdrop-blur">
               <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-primary-foreground/70">
@@ -222,29 +218,6 @@ export default function DepositPage() {
                 </li>
               ))}
             </ol>
-          </div>
-
-          <div className="rounded-[2rem] glass p-5">
-            <p className="flex items-center gap-2 text-sm font-black">
-              <BadgeCheck className="h-4 w-4 text-success" /> Your balances
-            </p>
-            <div className="mt-4 space-y-3 text-sm">
-              <div className="flex items-center justify-between gap-3 rounded-2xl glass-soft px-4 py-3">
-                <span className="flex items-center gap-2 text-muted-foreground">
-                  <Lock className="h-3.5 w-3.5 text-gold" /> Deposit (locked)
-                </span>
-                <span className="font-bold">{money(deposited)}</span>
-              </div>
-              <div className="flex items-center justify-between gap-3 rounded-2xl glass-soft px-4 py-3">
-                <span className="text-muted-foreground">Withdraw balance</span>
-                <span className="font-bold text-success">{money(withdrawable)}</span>
-              </div>
-              <p className="text-[11px] leading-relaxed text-muted-foreground">
-                Deposits are locked and can't be withdrawn — only your earnings (plan income,
-                commissions, bonuses and rewards) are withdrawable. Your deposit powers your
-                plans and grows your income.
-              </p>
-            </div>
           </div>
 
           <Link

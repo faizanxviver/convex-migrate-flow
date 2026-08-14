@@ -1,7 +1,7 @@
 import { api } from "@/convex/_generated/api";
 import { GlassCard, SectionTitle } from "@/components/hopex/glass";
 import { useHope } from "@/hooks/use-hope";
-import { depositBalance, hour12, isWithdrawWindowOpen, money, pakistanClock, withdrawableBalance } from "@/lib/hopex";
+import { hour12, isWithdrawWindowOpen, money, pakistanClock, withdrawableBalance } from "@/lib/hopex";
 import { cn } from "@/lib/utils";
 import { useMutation } from "convex/react";
 import {
@@ -50,7 +50,6 @@ export default function WithdrawPage() {
   const bound = Boolean(profile.accountNumber && profile.accountName);
   const windowOpen = isWithdrawWindowOpen(open, close, new Date(tick));
   const withdrawable = withdrawableBalance(profile.balance, transactions, profile.userId);
-  const deposited = depositBalance(transactions, profile.userId);
 
   /* ---------- account binding first ---------- */
   if (!bound) {
@@ -132,9 +131,7 @@ export default function WithdrawPage() {
       return toast.error(`Minimum withdrawal is ${money(minWithdraw)}.`);
     }
     if (value > withdrawable) {
-      return toast.error(
-        `You can only withdraw your earnings (${money(withdrawable)}). Deposits are locked and cannot be withdrawn.`,
-      );
+      return toast.error(`You can only withdraw your earnings (${money(withdrawable)}).`);
     }
     if (!planActive) {
       return toast.error(
@@ -172,10 +169,6 @@ export default function WithdrawPage() {
             Withdrawable balance
           </p>
           <p className="mt-1 font-display text-4xl font-black tracking-tight">{money(withdrawable)}</p>
-          <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-            <Lock className="h-3 w-3 text-gold" />
-            Deposits are locked — {money(deposited)} stays in your deposit balance.
-          </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span
               className={cn(
@@ -290,7 +283,7 @@ export default function WithdrawPage() {
               </li>
               <li className="flex items-start gap-2">
                 <Lock className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
-                Deposits are locked — only your earnings (plan income, commissions, bonuses, rewards) are withdrawable.
+                Only your earnings (plan income, commissions, bonuses, rewards) are withdrawable.
               </li>
               <li className="flex items-start gap-2">
                 <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />

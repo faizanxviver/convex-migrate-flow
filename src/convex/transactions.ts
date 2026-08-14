@@ -121,9 +121,7 @@ export const requestWithdraw = mutation({
     );
     const withdrawable = round2(Math.max(0, profile.balance - deposited));
     if (withdrawable < amt)
-      throw new Error(
-        `You can only withdraw your earnings (${fmt(withdrawable)}). Deposits are locked and cannot be withdrawn.`,
-      );
+      throw new Error(`You can only withdraw your earnings (${fmt(withdrawable)}).`);
 
     // Hold the funds so pending requests cannot be double spent.
     await ctx.db.patch(profile._id, {

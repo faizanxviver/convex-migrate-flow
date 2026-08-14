@@ -75,6 +75,21 @@ export function withdrawableBalance(balance: number, txs: Transaction[], userId:
   return round2(Math.max(0, (Number(balance) || 0) - depositBalance(txs, userId)));
 }
 
+/**
+ * Amount that can fund a new plan: deposits minus what's already invested,
+ * capped by the current wallet balance. Plans are activated only from
+ * deposited funds — earnings stay withdrawable.
+ */
+export function investableBalance(
+  balance: number,
+  txs: Transaction[],
+  invested: number,
+  userId: string,
+) {
+  const deposited = depositBalance(txs, userId);
+  return round2(Math.max(0, Math.min(Number(balance) || 0, deposited - (Number(invested) || 0))));
+}
+
 export function pendingDeposits(txs: Transaction[], userId: string) {
   return round2(
     txs

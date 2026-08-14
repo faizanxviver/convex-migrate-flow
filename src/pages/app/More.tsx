@@ -15,7 +15,6 @@ import {
   Headset,
   History,
   Layers,
-  LifeBuoy,
   LogOut,
   ReceiptText,
   ShieldHalf,
@@ -232,19 +231,6 @@ export default function MorePage() {
           ))}
         </GlassCard>
       </section>
-
-      <a
-        href="mailto:support@hopex.io"
-        className="glass flex items-center gap-3 rounded-2xl p-4 transition hover:-translate-y-0.5"
-      >
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-primary/15 text-primary">
-          <LifeBuoy className="h-5 w-5" />
-        </span>
-        <span className="min-w-0">
-          <span className="block text-sm font-semibold">{t("Help centre")}</span>
-          <span className="block truncate text-xs text-muted-foreground">support@hopex.io</span>
-        </span>
-      </a>
 
       <button
         onClick={handleSignOut}

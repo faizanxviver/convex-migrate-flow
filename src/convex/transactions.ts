@@ -84,7 +84,7 @@ export const requestWithdraw = mutation({
 
     const settings = await getSettings(ctx);
     const minWithdraw = settings?.minWithdraw ?? 500;
-    const open = settings?.withdrawOpenHour ?? 8;
+    const open = settings?.withdrawOpenHour ?? 9;
     const close = settings?.withdrawCloseHour ?? 19;
 
     const hasPlan = await ctx.db

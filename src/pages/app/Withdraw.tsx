@@ -12,7 +12,6 @@ import {
   Info,
   Lock,
   ShieldCheck,
-  Timer,
   Wallet,
   XCircle,
 } from "lucide-react";
@@ -21,46 +20,6 @@ import { Link } from "react-router";
 import { toast } from "sonner";
 import { PayoutAccountCard } from "./Profile";
 
-const REVIEW_MS = 5 * 60 * 1000;
-
-function clock(ms: number) {
-  const s = Math.max(0, Math.floor(ms / 1000));
-  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
-}
-
-/** Animated circular countdown — WhatsApp-style "reviewing" timer. */
-function ReviewRing({ left, total }: { left: number; total: number }) {
-  const r = 56;
-  const c = 2 * Math.PI * r;
-  const pct = Math.max(0, Math.min(1, left / total));
-  return (
-    <div className="relative mx-auto grid h-40 w-40 place-items-center">
-      <svg viewBox="0 0 128 128" className="h-40 w-40 -rotate-90">
-        <circle cx="64" cy="64" r={r} fill="none" stroke="currentColor" strokeWidth="9" className="text-border/60" />
-        <circle
-          cx="64"
-          cy="64"
-          r={r}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="9"
-          strokeLinecap="round"
-          strokeDasharray={c}
-          strokeDashoffset={c * (1 - pct)}
-          className="text-primary transition-all duration-1000 ease-linear"
-        />
-      </svg>
-      <div className="absolute inset-0 grid place-items-center">
-        <div className="text-center">
-          <p className="font-display text-4xl font-black tabular-nums">{clock(left)}</p>
-          <p className="mt-0.5 flex items-center justify-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-            <Timer className="h-3 w-3" /> Reviewing
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function WithdrawPage() {
   const { profile, settings, investments, transactions } = useHope();
@@ -84,7 +43,7 @@ export default function WithdrawPage() {
 
   if (!profile) return null;
 
-  const open = settings?.withdrawOpenHour ?? 8;
+  const open = settings?.withdrawOpenHour ?? 9;
   const close = settings?.withdrawCloseHour ?? 19;
   const minWithdraw = settings?.minWithdraw ?? 500;
   const planActive = investments.some((i) => i.userId === profile.userId);
@@ -117,12 +76,11 @@ export default function WithdrawPage() {
 
   /* ---------- pending review ---------- */
   if (pending) {
-    const left = REVIEW_MS - (tick - new Date(pending.createdAt).getTime());
     return (
       <div className="space-y-5 pb-24">
         <SectionTitle
-          title="Withdrawal under review"
-          subtitle="Our payouts team is verifying your request — usually under 5 minutes."
+          title="Withdrawal in progress"
+          subtitle="You already have a pending withdrawal — it will be completed first. You can place another one once it is completed."
         />
         <GlassCard className="relative mx-auto max-w-lg overflow-hidden text-center" glow>
           <div className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-primary/15 blur-3xl" />
@@ -133,16 +91,18 @@ export default function WithdrawPage() {
             </span>
 
             <div className="mt-6">
-              <ReviewRing left={left} total={REVIEW_MS} />
+              <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-gold/15 text-gold">
+                <Clock4 className="h-9 w-9" />
+              </div>
             </div>
 
             <p className="mt-4 text-sm font-semibold">
               {money(pending.amount)} <span className="text-muted-foreground">· {pending.method}</span>
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {left > 0
-                ? "The countdown is running — you don't need to do anything."
-                : "Still verifying — we'll credit your balance if anything goes wrong."}
+            <p className="mx-auto mt-1 max-w-sm text-xs leading-relaxed text-muted-foreground">
+              Payouts are processed within{" "}
+              <span className="font-semibold text-foreground">1–24 hours</span>, daily from {hour12(open)} to{" "}
+              {hour12(close)} Pakistan time. Your next withdrawal can be placed after this one is completed.
             </p>
 
             <div className="mt-6 rounded-2xl glass-soft p-4 text-left text-sm">
@@ -168,6 +128,16 @@ export default function WithdrawPage() {
     const value = Number(amount);
     if (!value || value < minWithdraw) {
       return toast.error(`Minimum withdrawal is ${money(minWithdraw)}.`);
+    }
+    if (!planActive) {
+      return toast.error(
+        "Please activate an investment plan first to withdraw. You can bind your payout account here and invest from the Plans page.",
+      );
+    }
+    if (!windowOpen) {
+      return toast.error(
+        `Withdrawals are open daily from ${hour12(open)} to ${hour12(close)} Pakistan time. Please try again then.`,
+      );
     }
     setBusy(true);
     try {
@@ -274,7 +244,7 @@ export default function WithdrawPage() {
             </div>
 
             <button
-              disabled={busy || !windowOpen || !planActive}
+              disabled={busy}
               className="btn-glass btn-glass-primary flex h-14 w-full items-center justify-center gap-2 text-base font-bold disabled:opacity-50"
             >
               <ArrowUpFromLine className="h-5 w-5" />
@@ -289,7 +259,11 @@ export default function WithdrawPage() {
             <ul className="mt-3 space-y-2.5 text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
                 <Clock4 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                Requests are accepted daily from {hour12(open)} to {hour12(close)} (PKT)
+                Requests are accepted daily from {hour12(open)} to {hour12(close)} (Pakistan time)
+              </li>
+              <li className="flex items-start gap-2">
+                <Clock4 className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                Payouts are processed within 1–24 hours.
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
@@ -297,15 +271,15 @@ export default function WithdrawPage() {
               </li>
               <li className="flex items-start gap-2">
                 <Lock className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
-                At least one investment plan must be active.
+                At least one investment plan must be active to withdraw.
               </li>
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                 Minimum withdrawal is {money(minWithdraw)}
               </li>
               <li className="flex items-start gap-2">
-                <Timer className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                Reviewed within about 5 minutes.
+                <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                Only one withdrawal can be pending at a time — the next one starts after it is completed.
               </li>
               <li className="flex items-start gap-2">
                 <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />

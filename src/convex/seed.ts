@@ -168,8 +168,19 @@ export const seedReferenceData = mutation({
         rewardActive: true,
         proofRewardAmount: 5,
         showProofsSection: true,
-        withdrawOpenHour: 8,
+        withdrawOpenHour: 9,
         withdrawCloseHour: 19,
+        updatedAt: Date.now(),
+      });
+    } else if (
+      existingSettings.withdrawOpenHour === 8 &&
+      existingSettings.withdrawCloseHour === 19
+    ) {
+      // One-time migration: the payout window default moved from 8:00 AM to
+      // 9:00 AM (owner's request) — bump existing docs that still carry the
+      // original seed default so the live site shows 9 AM – 7 PM.
+      await ctx.db.patch(existingSettings._id, {
+        withdrawOpenHour: 9,
         updatedAt: Date.now(),
       });
     }

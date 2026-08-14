@@ -2,6 +2,8 @@ import { v } from "convex/values";
 import { mutation } from "./_generated/server";
 
 export const DEFAULT_SALARY_TIERS = [
+  // Investment-based ranks — Level 1 team TOTAL investment unlocks the rank,
+  // no minimum head-count required (`team` is legacy/unused).
   { rank: "Bronze", team: 3, invested: 5000, salary: 500 },
   { rank: "Silver", team: 10, invested: 25000, salary: 2500 },
   { rank: "Gold", team: 25, invested: 75000, salary: 8000 },

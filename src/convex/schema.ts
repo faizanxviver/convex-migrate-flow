@@ -73,6 +73,8 @@ export type LeaderPlanStatus = Infer<typeof leaderPlanStatusValidator>;
 
 export const salaryTierValidator = v.object({
   rank: v.string(),
+  // Legacy field kept for schema stability — NOT used by the UI. Ranks are
+  // earned from the Level 1 team's TOTAL investment, no head-count needed.
   team: v.number(),
   invested: v.number(),
   salary: v.number(),

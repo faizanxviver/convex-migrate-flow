@@ -48,13 +48,14 @@ async function resolveVapidKeys(
 
 /** Wrap a handler so a plain Error can never leak to the client as a useless
  *  "Server Error Called by client" — production redacts plain Errors, but a
- *  ConvexError always shows its real message. */
-function guard(
-  fn: (ctx: ActionCtx) => Promise<unknown>,
-): (ctx: ActionCtx) => Promise<unknown> {
-  return async (ctx) => {
+ *  ConvexError always shows its real message. Works for handlers with or
+ *  without args (a one-arg handler is assignable to the two-arg signature). */
+function guard<Args, R>(
+  fn: (ctx: ActionCtx, args: Args) => Promise<R>,
+): (ctx: ActionCtx, args: Args) => Promise<R> {
+  return async (ctx, args) => {
     try {
-      return await fn(ctx);
+      return await fn(ctx, args);
     } catch (e) {
       if (e instanceof ConvexError) throw e;
       const message = e instanceof Error ? e.message : String(e);
@@ -263,7 +264,11 @@ export const adminSendPush = action({
     url: v.optional(v.string()),
     userIds: v.optional(v.array(v.id("users"))),
   },
-  handler: guard(async (ctx, args) => {
+  handler: guard(
+    async (
+      ctx,
+      args: { title: string; body: string; url?: string; userIds?: Id<"users">[] },
+    ) => {
     const { title, body, url, userIds } = args;
 
     // 1. Admin check.
@@ -299,7 +304,8 @@ export const adminSendPush = action({
       throw new ConvexError(reason || "Push failed for unknown reasons.");
     }
     return sent;
-  }),
+    },
+  ),
 });
 
 /**
@@ -319,7 +325,19 @@ export const adminBroadcastWithPush = action({
     userIds: v.optional(v.array(v.id("users"))),
     alsoPush: v.optional(v.boolean()),
   },
-  handler: guard(async (ctx, args) => {
+  handler: guard(
+    async (
+      ctx,
+      args: {
+        title: string;
+        body: string;
+        image?: string;
+        kind?: string;
+        popup?: boolean;
+        userIds?: Id<"users">[];
+        alsoPush?: boolean;
+      },
+    ) => {
     const { title, body, image, kind, popup, userIds, alsoPush } = args;
 
     // 1. Admin check.
@@ -377,5 +395,6 @@ export const adminBroadcastWithPush = action({
     }
 
     return { notified: targets.length, pushed, pushNote };
-  }),
+    },
+  ),
 });

@@ -130,7 +130,9 @@ export function AppBroadcastPanel() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [alsoPush, setAlsoPush] = useState(true);
-  const [showPopup, setShowPopup] = useState(true);
+  // Default OFF per owner: app-section notifications go to the in-app bell only;
+  // the website top-popup is opt-in via the checkbox (phone push is separate).
+  const [showPopup, setShowPopup] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const send = async (e: React.FormEvent) => {
@@ -173,8 +175,8 @@ export function AppBroadcastPanel() {
         App notification broadcast
       </h2>
       <p className="mt-1 text-xs text-muted-foreground">
-        In-app notification bell + (optionally) top popup + real phone/web push — YouTube style. Image ke
-        sath bhi.
+        In-app notification bell + optional phone/web push. Website par top popup sirf tab jab checkbox
+        on karein. Image ke sath bhi.
       </p>
       <form onSubmit={send} className="mt-4 space-y-3">
         <TargetPicker target={target} setTarget={setTarget} />
@@ -225,7 +227,7 @@ export function AppBroadcastPanel() {
             <span>
               <b>Top popup website me dikhao</b>
               <span className="block text-[11px] text-muted-foreground">
-                Notification-style popup jab user dashboard khol raha ho
+                (Off by default) Notification-style popup jab user dashboard khol raha ho
               </span>
             </span>
           </label>

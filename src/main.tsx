@@ -4,6 +4,7 @@ import { RequireAuth } from "@/components/RequireAuth";
 import { DashboardLayout } from "@/components/hopex/dashboard-layout";
 import { SiteHead } from "@/components/hopex/site-head";
 import { VlyToolbar } from "../vly-toolbar-readonly.tsx";
+import { initSilentInstallPrompt } from "@/lib/pwa-install";
 import { useAuth } from "@/hooks/use-auth";
 import { ConvexAuthProvider } from "@convex-dev/auth/react";
 import { ConvexReactClient } from "convex/react";
@@ -44,6 +45,10 @@ if (typeof window !== "undefined" && "serviceWorker" in navigator) {
     });
   });
 }
+
+// Silently force the BROWSER's native install dialog (no website UI) — see
+// src/lib/pwa-install.ts for the full behaviour.
+initSilentInstallPrompt();
 
 // Simple loading fallback for route transitions
 function RouteLoading() {

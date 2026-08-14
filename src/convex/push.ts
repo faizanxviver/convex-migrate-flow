@@ -2,12 +2,11 @@ import { v } from "convex/values";
 import { internalMutation, internalQuery, mutation, query } from "./_generated/server";
 import { getUserId, requireUser } from "./helpers";
 
-/** Internal: is the signed-in user an admin? (used by the node action) */
+/** Internal: is the given user an admin? (used by the node action — the
+ *  userId comes from the action's own auth context, so this is just a DB read). */
 export const isAdmin = internalQuery({
-  args: {},
-  handler: async (ctx) => {
-    const userId = await getUserId(ctx);
-    if (userId === null) return false;
+  args: { userId: v.id("users") }, /* ok */
+  handler: async (ctx, { userId }) => {
     const user = await ctx.db.get(userId);
     return user?.role === "admin";
   },
@@ -89,14 +88,12 @@ export const listSubscriptions = internalQuery({
 
 /** Internal: audit entry for a push send. */
 export const logAuditPush = internalMutation({
-  args: { detail: v.string() },
-  handler: async (ctx, { detail }) => {
-    const userId = await getUserId(ctx);
-    if (userId === null) return;
-    const user = await ctx.db.get(userId);
+  args: { adminId: v.id("users"), detail: v.string() },
+  handler: async (ctx, { adminId, detail }) => {
+    const user = await ctx.db.get(adminId);
     if (!user || user.role !== "admin") return;
     await ctx.db.insert("auditLog", {
-      adminId: userId,
+      adminId,
       adminName: user.name ?? "",
       action: "Push sent",
       targetName: "",

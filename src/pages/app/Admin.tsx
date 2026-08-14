@@ -3,6 +3,7 @@ import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { GlassCard, StatCard, StatusBadge } from "@/components/hopex/glass";
 import { PromoManager } from "@/components/hopex/promo-manager";
 import { AdminChat } from "@/components/hopex/admin-chat";
+import { AppBroadcastPanel, PushBroadcastPanel } from "@/components/hopex/broadcast";
 import { useUploader } from "@/components/hopex/storage-image";
 import { useAdminData } from "@/hooks/use-admin";
 import { useHope } from "@/hooks/use-hope";
@@ -84,7 +85,8 @@ const TABS = [
   "Balance Control",
   "Support Chat",
   "Channels",
-  "Broadcast",
+  "App Broadcast",
+  "Push Broadcast",
   "Audit Log",
   "Tools",
   "SEO",
@@ -106,7 +108,8 @@ const TAB_ICONS: Record<TabId, LucideIcon> = {
   "Balance Control": Wallet,
   "Support Chat": MessageSquare,
   Channels: Link2,
-  Broadcast: Megaphone,
+  "App Broadcast": BellRing,
+  "Push Broadcast": Megaphone,
   "Audit Log": ScrollText,
   Tools: Wrench,
   SEO: Globe,
@@ -117,7 +120,7 @@ const TAB_ICONS: Record<TabId, LucideIcon> = {
 const GROUPS: { label: string; items: TabId[] }[] = [
   { label: "Operations", items: ["Overview", "Users", "Support Chat"] },
   { label: "Money flow", items: ["Auto Deposit", "Withdrawals", "Balance Control", "Methods"] },
-  { label: "Growth", items: ["Plans", "Promo Codes", "Leader Plans", "Channels", "Broadcast"] },
+  { label: "Growth", items: ["Plans", "Promo Codes", "Leader Plans", "Channels", "App Broadcast", "Push Broadcast"] },
   { label: "System", items: ["Tools", "SEO", "API Keys", "Audit Log", "Settings"] },
 ];
 
@@ -303,7 +306,8 @@ function AdminConsole() {
               {tab === "Balance Control" ? <BalanceControl /> : null}
               {tab === "Support Chat" ? <AdminChat /> : null}
               {tab === "Channels" ? <ChannelsManager /> : null}
-              {tab === "Broadcast" ? <BroadcastPanel /> : null}
+              {tab === "App Broadcast" ? <AppBroadcastPanel /> : null}
+              {tab === "Push Broadcast" ? <PushBroadcastPanel /> : null}
               {tab === "Audit Log" ? <AuditLogPanel /> : null}
               {tab === "Tools" ? <ToolsPanel /> : null}
               {tab === "SEO" ? <SeoSettings /> : null}
@@ -2335,261 +2339,6 @@ function ChannelsManager() {
           ))
         )}
       </div>
-    </div>
-  );
-}
-
-/* ============================== broadcast ============================== */
-
-function BroadcastPanel() {
-  const { users } = useAdminData();
-  const broadcast = useMutation(api.notifications.adminBroadcast);
-  const sendPush = useAction(api.pushNode.adminSendPush);
-
-  // ---- in-app notification state ----
-  const [appTitle, setAppTitle] = useState("");
-  const [appBody, setAppBody] = useState("");
-  const [appImage, setAppImage] = useState("");
-  const [appTarget, setAppTarget] = useState<"all" | "specific">("all");
-  const [appSelected, setAppSelected] = useState<Set<string>>(new Set());
-  const [appSearch, setAppSearch] = useState("");
-  const [appBusy, setAppBusy] = useState(false);
-
-  // ---- web/phone push state ----
-  const [pushTitle, setPushTitle] = useState("");
-  const [pushBody, setPushBody] = useState("");
-  const [pushTarget, setPushTarget] = useState<"all" | "specific">("all");
-  const [pushSelected, setPushSelected] = useState<Set<string>>(new Set());
-  const [pushSearch, setPushSearch] = useState("");
-  const [pushBusy, setPushBusy] = useState(false);
-
-  const filteredUsers = (list: Set<string>, q: string) =>
-    users.filter((u) =>
-      q.trim()
-        ? `${u.name} ${u.phone ?? ""} ${u.email ?? ""}`.toLowerCase().includes(q.toLowerCase()) ||
-          list.has(u.userId)
-        : true,
-    );
-
-  const toggleIn = (list: Set<string>, setList: (v: Set<string>) => void, id: string) => {
-    const next = new Set(list);
-    if (next.has(id)) next.delete(id);
-    else next.add(id);
-    setList(next);
-  };
-
-  /* ---------- send in-app notification (bell + popup) ---------- */
-  const sendApp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!appTitle.trim() || !appBody.trim()) return toast.error("Title and message are required.");
-    if (appTarget === "specific" && appSelected.size === 0) return toast.error("Select at least one user.");
-    setAppBusy(true);
-    try {
-      const userIds = appTarget === "all" ? undefined : (Array.from(appSelected) as Id<"users">[]);
-      const n = await broadcast({
-        title: appTitle.trim(),
-        body: appBody.trim(),
-        image: appImage.trim() || undefined,
-        userIds,
-        popup: true,
-      });
-      toast.success(`In-app notification sent to ${n} user(s).`);
-      setAppTitle("");
-      setAppBody("");
-      setAppImage("");
-      setAppSelected(new Set());
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message.replace(/^.*?:\s*/, "") : "Could not send");
-    } finally {
-      setAppBusy(false);
-    }
-  };
-
-  /* ---------- send web/phone push (app band ho to bhi) ---------- */
-  const sendPushNotify = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!pushTitle.trim() || !pushBody.trim()) return toast.error("Title and message are required.");
-    if (pushTarget === "specific" && pushSelected.size === 0) return toast.error("Select at least one user.");
-    setPushBusy(true);
-    try {
-      const userIds = pushTarget === "all" ? undefined : (Array.from(pushSelected) as Id<"users">[]);
-      const devices = await sendPush({ title: pushTitle.trim(), body: pushBody.trim(), userIds });
-      toast.success(`Phone push sent to ${devices} device(s).`);
-      setPushTitle("");
-      setPushBody("");
-      setPushSelected(new Set());
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message.replace(/^.*?:\s*/, "") : "Could not send push");
-    } finally {
-      setPushBusy(false);
-    }
-  };
-
-  const TargetPicker = ({
-    target,
-    setTarget,
-  }: {
-    target: "all" | "specific";
-    setTarget: (t: "all" | "specific") => void;
-  }) => (
-    <div className="grid grid-cols-2 gap-2 rounded-2xl bg-secondary/50 p-1">
-      {(["all", "specific"] as const).map((t) => (
-        <button
-          type="button"
-          key={t}
-          onClick={() => setTarget(t)}
-          className={cn(
-            "rounded-xl py-2 text-center text-sm font-semibold transition",
-            target === t ? "gradient-cool text-primary-foreground shadow" : "text-muted-foreground",
-          )}
-        >
-          {t === "all" ? "All users" : "Specific users"}
-        </button>
-      ))}
-    </div>
-  );
-
-  const UserPicker = ({
-    list,
-    setList,
-    search,
-    setSearch,
-  }: {
-    list: Set<string>;
-    setList: (v: Set<string>) => void;
-    search: string;
-    setSearch: (v: string) => void;
-  }) => (
-    <div className="rounded-2xl border border-border/60 p-3">
-      <input
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        placeholder="Search users…"
-        className="h-10 w-full rounded-xl border border-input bg-background/40 px-3 text-sm outline-none"
-      />
-      <div className="mt-2 max-h-40 space-y-1 overflow-y-auto pr-1">
-        {filteredUsers(list, search).map((u) => {
-          const on = list.has(u.userId);
-          return (
-            <label
-              key={u.userId}
-              className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-1.5 transition hover:bg-accent/40"
-            >
-              <input
-                type="checkbox"
-                checked={on}
-                onChange={() => toggleIn(list, setList, u.userId)}
-                className="h-4 w-4 shrink-0 accent-[var(--primary)]"
-              />
-              <span className="min-w-0 flex-1 truncate text-sm font-semibold">{u.name}</span>
-              <span className="shrink-0 truncate text-[11px] text-muted-foreground">
-                {u.phone ?? u.email ?? ""}
-              </span>
-            </label>
-          );
-        })}
-        {filteredUsers(list, search).length === 0 ? (
-          <p className="p-3 text-center text-xs text-muted-foreground">No users found.</p>
-        ) : null}
-      </div>
-      <p className="mt-1.5 text-[11px] font-semibold text-muted-foreground">{list.size} selected</p>
-    </div>
-  );
-
-  return (
-    <div className="grid gap-5 lg:grid-cols-2">
-      {/* ---------- In-app notification ---------- */}
-      <GlassCard>
-        <h2 className="flex items-center gap-2 text-lg font-bold">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-primary/15 text-primary">
-            <BellRing className="h-4 w-4" />
-          </span>
-          In-app notification
-        </h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          User ko app/website ke andar notification bell + popup me dikhti hai.
-        </p>
-        <form onSubmit={sendApp} className="mt-4 space-y-3">
-          <TargetPicker target={appTarget} setTarget={setAppTarget} />
-          {appTarget === "specific" ? (
-            <UserPicker
-              list={appSelected}
-              setList={setAppSelected}
-              search={appSearch}
-              setSearch={setAppSearch}
-            />
-          ) : null}
-          <input
-            value={appTitle}
-            onChange={(e) => setAppTitle(e.target.value)}
-            placeholder="Title"
-            className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
-          />
-          <input
-            value={appImage}
-            onChange={(e) => setAppImage(e.target.value)}
-            placeholder="Image URL (optional) — popup me dikhegi"
-            className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
-          />
-          <textarea
-            value={appBody}
-            onChange={(e) => setAppBody(e.target.value)}
-            placeholder="Message"
-            rows={3}
-            className="w-full rounded-xl border border-input bg-background/40 p-4 text-sm outline-none"
-          />
-          <button
-            disabled={appBusy}
-            className="h-12 w-full rounded-xl btn-glass btn-glass-primary font-semibold disabled:opacity-60"
-          >
-            {appBusy ? "Sending…" : "Send in-app notification"}
-          </button>
-        </form>
-      </GlassCard>
-
-      {/* ---------- Web / phone push ---------- */}
-      <GlassCard>
-        <h2 className="flex items-center gap-2 text-lg font-bold">
-          <span className="grid h-9 w-9 place-items-center rounded-xl bg-success/15 text-success">
-            <Megaphone className="h-4 w-4" />
-          </span>
-          Web / phone push
-        </h2>
-        <p className="mt-1 text-xs text-muted-foreground">
-          User ke phone par notification — app band ho to bhi (sirf unko jayegi jinhone app me
-          notifications Allow ki hain).
-        </p>
-        <form onSubmit={sendPushNotify} className="mt-4 space-y-3">
-          <TargetPicker target={pushTarget} setTarget={setPushTarget} />
-          {pushTarget === "specific" ? (
-            <UserPicker
-              list={pushSelected}
-              setList={setPushSelected}
-              search={pushSearch}
-              setSearch={setPushSearch}
-            />
-          ) : null}
-          <input
-            value={pushTitle}
-            onChange={(e) => setPushTitle(e.target.value)}
-            placeholder="Title"
-            className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
-          />
-          <textarea
-            value={pushBody}
-            onChange={(e) => setPushBody(e.target.value)}
-            placeholder="Message"
-            rows={3}
-            className="w-full rounded-xl border border-input bg-background/40 p-4 text-sm outline-none"
-          />
-          <button
-            disabled={pushBusy}
-            className="h-12 w-full rounded-xl gradient-brand font-semibold text-primary-foreground disabled:opacity-60"
-          >
-            {pushBusy ? "Sending…" : "Send phone push"}
-          </button>
-        </form>
-      </GlassCard>
     </div>
   );
 }

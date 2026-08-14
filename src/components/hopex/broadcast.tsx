@@ -121,7 +121,7 @@ function UserPicker({
 
 export function AppBroadcastPanel() {
   const { users } = useAdminData();
-  const broadcast = useMutation(api.notifications.adminBroadcast);
+  const broadcast = useAction(api.pushNode.adminBroadcastWithPush);
 
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -129,6 +129,8 @@ export function AppBroadcastPanel() {
   const [target, setTarget] = useState<"all" | "specific">("all");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
+  const [alsoPush, setAlsoPush] = useState(true);
+  const [showPopup, setShowPopup] = useState(true);
   const [busy, setBusy] = useState(false);
 
   const send = async (e: React.FormEvent) => {
@@ -138,14 +140,19 @@ export function AppBroadcastPanel() {
     setBusy(true);
     try {
       const userIds = target === "all" ? undefined : (Array.from(selected) as Id<"users">[]);
-      const n = await broadcast({
+      const res = await broadcast({
         title: title.trim(),
         body: body.trim(),
         image: image.trim() || undefined,
         userIds,
-        popup: true,
+        popup: showPopup,
+        alsoPush,
       });
-      toast.success(`App notification sent to ${n} user(s).`);
+      toast.success(
+        `App notification sent to ${res.notified} user(s)` +
+          (res.pushed > 0 ? ` — phone/web push bhi ${res.pushed} device(s) par gayi 🎉` : ""),
+      );
+      if (res.pushed === 0 && res.pushNote) toast.warning(res.pushNote);
       setTitle("");
       setBody("");
       setImage("");
@@ -166,7 +173,8 @@ export function AppBroadcastPanel() {
         App notification broadcast
       </h2>
       <p className="mt-1 text-xs text-muted-foreground">
-        App aur website ke andar notification bell + top popup me dikhti hai (image ke sath bhi).
+        In-app notification bell + (optionally) top popup + real phone/web push — YouTube style. Image ke
+        sath bhi.
       </p>
       <form onSubmit={send} className="mt-4 space-y-3">
         <TargetPicker target={target} setTarget={setTarget} />
@@ -192,6 +200,36 @@ export function AppBroadcastPanel() {
           rows={3}
           className="w-full rounded-xl border border-input bg-background/40 p-4 text-sm outline-none"
         />
+        <div className="grid gap-2 sm:grid-cols-2">
+          <label className="flex cursor-pointer items-center gap-2.5 rounded-2xl border border-border/60 bg-background/40 px-4 py-3 text-sm">
+            <input
+              type="checkbox"
+              checked={alsoPush}
+              onChange={(e) => setAlsoPush(e.target.checked)}
+              className="h-4 w-4 shrink-0 accent-[var(--primary)]"
+            />
+            <span>
+              <b>Phone / web push bhi</b>
+              <span className="block text-[11px] text-muted-foreground">
+                Unki phone par real notification — website/app band ho to bhi
+              </span>
+            </span>
+          </label>
+          <label className="flex cursor-pointer items-center gap-2.5 rounded-2xl border border-border/60 bg-background/40 px-4 py-3 text-sm">
+            <input
+              type="checkbox"
+              checked={showPopup}
+              onChange={(e) => setShowPopup(e.target.checked)}
+              className="h-4 w-4 shrink-0 accent-[var(--primary)]"
+            />
+            <span>
+              <b>Top popup website me dikhao</b>
+              <span className="block text-[11px] text-muted-foreground">
+                Notification-style popup jab user dashboard khol raha ho
+              </span>
+            </span>
+          </label>
+        </div>
         <button
           disabled={busy}
           className="h-12 w-full rounded-xl btn-glass btn-glass-primary font-semibold disabled:opacity-60"

@@ -4,6 +4,7 @@ import { getAuthUserId } from "@convex-dev/auth/server";
 import { ConvexError, v } from "convex/values";
 import { action, type ActionCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
+import type { Id } from "./_generated/dataModel";
 import webpush from "web-push";
 
 /** Resolve VAPID keys: env vars first, then the admin-managed key pool. */
@@ -31,6 +32,78 @@ function keyLooksValid(key: string, kind: "public" | "private"): boolean {
   return bytes === 32 || bytes === 65;
 }
 
+/**
+ * Deliver a push payload to a list of subscriptions. Never throws — returns a
+ * per-call result so callers (strict adminSendPush, or best-effort broadcast)
+ * decide how loud to be. 404/410 subscriptions are dropped automatically.
+ */
+async function deliverPush(
+  ctx: ActionCtx,
+  subs: { endpoint: string; p256dh: string; auth: string }[],
+  title: string,
+  body: string,
+  url: string,
+): Promise<{ sent: number; failed: number; reason?: string }> {
+  const { publicKey, privateKey, subject } = await resolveVapidKeys(ctx);
+  if (!publicKey || !privateKey) {
+    return {
+      sent: 0,
+      failed: 0,
+      reason:
+        "VAPID keys are not set — Admin → Push Broadcast me Public + Private key paste karke Save karein (ya Generate pair dabayen).",
+    };
+  }
+  try {
+    webpush.setVapidDetails(subject, publicKey, privateKey);
+  } catch (e) {
+    return {
+      sent: 0,
+      failed: subs.length,
+      reason: `VAPID keys rejected: ${e instanceof Error ? e.message : String(e)}. Check the keys in Admin → Push Broadcast.`,
+    };
+  }
+
+  const payload = JSON.stringify({
+    title,
+    body,
+    icon: "/icon-192.png",
+    badge: "/icon-192.png",
+    data: { url },
+  });
+
+  let sent = 0;
+  let failed = 0;
+  const errorSet = new Set<string>();
+  for (const s of subs) {
+    try {
+      await webpush.sendNotification(
+        { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
+        payload,
+      );
+      sent++;
+    } catch (err) {
+      const code = (err as { statusCode?: number })?.statusCode;
+      if (code === 404 || code === 410) {
+        try {
+          await ctx.runMutation(internal.push.deletePushSubscription, {
+            endpoint: s.endpoint,
+          });
+        } catch {
+          /* dropping a dead subscription is best-effort */
+        }
+        continue;
+      }
+      failed++;
+      const message = err instanceof Error ? err.message : String(err);
+      if (message) errorSet.add(message);
+    }
+  }
+
+  const reason =
+    failed > 0 ? [...errorSet].slice(0, 2).join(" | ") : undefined;
+  return { sent, failed, reason };
+}
+
 /** Public VAPID key so the browser can subscribe. Served from env or the
  *  admin-managed key pool — no VITE_ duplicate needed. */
 export const getVapidPublicKey = action({
@@ -45,8 +118,7 @@ export const getVapidPublicKey = action({
  * Admin: verify the current VAPID setup WITHOUT sending any push. It resolves
  * the keys (env → admin panel), checks their format, and asks web-push to
  * build the request headers — which validates the keys exactly the way a real
- * send would, but makes zero network calls. Returns a clear status the console
- * can render as green/red.
+ * send would, but makes zero network calls.
  */
 export const checkVapidSetup = action({
   args: {},
@@ -152,22 +224,13 @@ export const adminSendPush = action({
     userIds: v.optional(v.array(v.id("users"))),
   },
   handler: async (ctx, { title, body, url, userIds }) => {
-    // 1. Admin check — auth is available directly on the action context; the
-    //    role lookup runs as a plain DB read (no auth dependency).
+    // 1. Admin check.
     const adminId = await getAuthUserId(ctx);
     if (adminId === null) throw new ConvexError("Not authenticated");
     const isAdmin = await ctx.runQuery(internal.push.isAdmin, { userId: adminId });
     if (!isAdmin) throw new ConvexError("Forbidden");
 
-    // 2. Resolve the VAPID keys (env → admin panel).
-    const { publicKey, privateKey, subject } = await resolveVapidKeys(ctx);
-    if (!publicKey || !privateKey) {
-      throw new ConvexError(
-        "VAPID keys are not set. Open Admin → Push Broadcast, paste both keys into the setup card and press Save (or set VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY in the Freebuff Keys tab).",
-      );
-    }
-
-    // 3. Load the target subscriptions.
+    // 2. Load the target subscriptions.
     const subs = await ctx.runQuery(internal.push.listSubscriptions, { userIds });
     if (subs.length === 0) {
       throw new ConvexError(
@@ -175,57 +238,16 @@ export const adminSendPush = action({
       );
     }
 
-    // 4. Validate the key pair exactly like a real send would (throws with the
-    //    real reason for malformed keys — previously this surfaced as a
-    //    useless "Server Error").
-    try {
-      webpush.setVapidDetails(subject, publicKey, privateKey);
-    } catch (e) {
-      throw new ConvexError(
-        `VAPID keys were rejected: ${e instanceof Error ? e.message : String(e)}. Check the keys in Admin → Push Broadcast.`,
-      );
-    }
-
-    const payload = JSON.stringify({
+    // 3. Deliver (resolves keys, validates them, sends, drops dead devices).
+    const { sent, failed, reason } = await deliverPush(
+      ctx,
+      subs,
       title,
       body,
-      icon: "/icon-192.png",
-      badge: "/icon-192.png",
-      data: { url: url ?? "/dashboard" },
-    });
+      url ?? "/dashboard",
+    );
 
-    // 5. Send to each device. 404/410 means the subscription is dead — drop it.
-    //    Other failures are collected so a single bad device can't mask a
-    //    genuine key/network problem.
-    let sent = 0;
-    let failed = 0;
-    const errorSet = new Set<string>();
-    for (const s of subs) {
-      try {
-        await webpush.sendNotification(
-          { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-          payload,
-        );
-        sent++;
-      } catch (err) {
-        const code = (err as { statusCode?: number })?.statusCode;
-        if (code === 404 || code === 410) {
-          try {
-            await ctx.runMutation(internal.push.deletePushSubscription, {
-              endpoint: s.endpoint,
-            });
-          } catch {
-            /* dropping a dead subscription is best-effort */
-          }
-          continue;
-        }
-        failed++;
-        const message = err instanceof Error ? err.message : String(err);
-        if (message) errorSet.add(message);
-      }
-    }
-
-    // 6. Audit — never fail the send because the audit log write failed.
+    // 4. Audit — never fail the send because the audit log write failed.
     try {
       await ctx.runMutation(internal.push.logAuditPush, {
         adminId,
@@ -235,14 +257,87 @@ export const adminSendPush = action({
       /* best-effort audit */
     }
 
-    // 7. Report. If nothing went through, say exactly why (real message,
+    // 5. Report. If nothing went through, say exactly why (real message,
     //    not a redacted "Server Error").
-    if (sent === 0 && failed > 0) {
-      const reasons = [...errorSet].slice(0, 3).join(" | ");
-      throw new ConvexError(
-        `Push failed for ${failed} device(s). ${reasons || "Unknown error"}`,
-      );
+    if (sent === 0 && (failed > 0 || reason)) {
+      throw new ConvexError(`Push failed. ${reason || "Unknown error"}`);
     }
     return sent;
+  },
+});
+
+/**
+ * Admin: broadcast an in-app notification AND — when the selected users have
+ * push enabled — a real web/phone push on top (the YouTube-style notification
+ * the owner asked for). `userIds` omitted = everyone. The in-app delivery
+ * always succeeds; push is best-effort and reports its status in the result so
+ * the console can tell the admin if keys/subscriptions are missing.
+ */
+export const adminBroadcastWithPush = action({
+  args: {
+    title: v.string(),
+    body: v.string(),
+    image: v.optional(v.string()),
+    kind: v.optional(v.string()),
+    popup: v.optional(v.boolean()),
+    userIds: v.optional(v.array(v.id("users"))),
+    alsoPush: v.optional(v.boolean()),
+  },
+  handler: async (ctx, { title, body, image, kind, popup, userIds, alsoPush }) => {
+    // 1. Admin check.
+    const adminId = await getAuthUserId(ctx);
+    if (adminId === null) throw new ConvexError("Not authenticated");
+    const isAdmin = await ctx.runQuery(internal.push.isAdmin, { userId: adminId });
+    if (!isAdmin) throw new ConvexError("Forbidden");
+
+    // 2. Resolve targets (all users when none chosen).
+    let targets: Id<"users">[] =
+      userIds && userIds.length > 0 ? userIds : await ctx.runQuery(internal.push.listAllUserIds, {});
+    if (targets.length === 0) {
+      throw new ConvexError("No users found to notify.");
+    }
+
+    // 3. Always create the in-app notifications (bell + optional top popup).
+    await ctx.runMutation(internal.notifications.internalBroadcastNotifications, {
+      userIds: targets,
+      title,
+      body,
+      kind: kind ?? "info",
+      popup: popup ?? false,
+      image,
+    });
+
+    // 4. Web/phone push — best effort so a missing key never loses the
+    //    in-app notification.
+    let pushed = 0;
+    let pushNote = "";
+    if (alsoPush !== false) {
+      try {
+        const subs = await ctx.runQuery(internal.push.listSubscriptions, {
+          userIds: targets,
+        });
+        if (subs.length > 0) {
+          const res = await deliverPush(ctx, subs, title, body, "/dashboard");
+          pushed = res.sent;
+          if (res.sent === 0 && res.reason) pushNote = res.reason;
+        } else {
+          pushNote = "Kisi user ne abhi tak notifications Allow nahi ki hain — phone push skip hui.";
+        }
+      } catch (e) {
+        pushNote = e instanceof Error ? e.message.slice(0, 200) : "Push failed";
+      }
+    }
+
+    // 5. Audit.
+    try {
+      await ctx.runMutation(internal.push.logAuditPush, {
+        adminId,
+        detail: `${title} · ${targets.length} notified · ${pushed} pushed`,
+      });
+    } catch {
+      /* best-effort audit */
+    }
+
+    return { notified: targets.length, pushed, pushNote };
   },
 });

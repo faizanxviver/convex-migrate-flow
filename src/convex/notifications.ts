@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import { mutation, query } from "./_generated/server";
+import { internalMutation, mutation, query } from "./_generated/server";
 import {
   getProfileByUserId,
   getUserId,
@@ -88,6 +88,28 @@ export const adminNotify = mutation({
       targetName: target?.name ?? "",
       detail: title,
     });
+  },
+});
+
+/**
+ * Internal: insert the same notification row for many users in one pass.
+ * Called by the adminBroadcastWithPush action (pushNode.ts) so a broadcast can
+ * ALSO deliver real web/phone push notifications, like YouTube — not just the
+ * in-app bell + popup.
+ */
+export const internalBroadcastNotifications = internalMutation({
+  args: {
+    userIds: v.array(v.id("users")),
+    title: v.string(),
+    body: v.string(),
+    kind: v.optional(v.string()),
+    popup: v.optional(v.boolean()),
+    image: v.optional(v.string()),
+  },
+  handler: async (ctx, { userIds, title, body, kind, popup, image }) => {
+    for (const uid of userIds) {
+      await pushNotification(ctx, uid, title, body, kind ?? "info", popup ?? false, image);
+    }
   },
 });
 

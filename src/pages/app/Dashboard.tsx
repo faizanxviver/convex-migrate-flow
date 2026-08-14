@@ -1,5 +1,5 @@
 import { api } from "@/convex/_generated/api";
-import { useMutation } from "convex/react";
+import { useAction, useMutation } from "convex/react";
 import {
   BellRing,
   Coins,
@@ -16,11 +16,11 @@ import {
   Wallet2,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
+import { X } from "lucide-react";
 import { Link } from "react-router";
 import { toast } from "sonner";
 import { useHope } from "@/hooks/use-hope";
 import { usePush } from "@/hooks/use-push";
-import { isStandaloneApp } from "@/hooks/use-install";
 import { useT } from "@/lib/i18n";
 import {
   activeInvestments,
@@ -302,11 +302,45 @@ export default function DashboardPage() {
 }
 
 /** Notification permission card — asks once, hidden once enabled/denied.
- *  Shown only inside the installed app (standalone). On the website the
- *  install banner is shown instead, per the owner's request. */
+ *  Shows on the website AND in the installed app, but only when VAPID keys are
+ *  actually configured (otherwise the Allow button would do nothing).
+ *  Dismissible so it never blocks anyone. */
 function PushCard({ push }: { push: ReturnType<typeof usePush> }) {
+  const getKey = useAction(api.pushNode.getVapidPublicKey);
+  const [configured, setConfigured] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
-  if (!isStandaloneApp()) return null;
+  const [dismissed, setDismissed] = useState(() => {
+    try {
+      return localStorage.getItem("hopex:push-card-dismissed") === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    let live = true;
+    void getKey()
+      .then((k) => {
+        if (live) setConfigured(Boolean(k && k.trim()));
+      })
+      .catch(() => {
+        if (live) setConfigured(false);
+      });
+    return () => {
+      live = false;
+    };
+  }, [getKey]);
+
+  const dismiss = () => {
+    setDismissed(true);
+    try {
+      localStorage.setItem("hopex:push-card-dismissed", "1");
+    } catch {
+      /* ignore */
+    }
+  };
+
+  if (dismissed || configured === null || !configured) return null;
   if (push.permission === "granted" || push.enabled) return null;
   if (push.permission === "denied") {
     return (
@@ -317,9 +351,17 @@ function PushCard({ push }: { push: ReturnType<typeof usePush> }) {
         <div className="min-w-0 flex-1">
           <p className="text-sm font-bold">Notifications are off</p>
           <p className="text-xs text-muted-foreground">
-            Enable them in your browser settings to get instant alerts on your phone.
+            Enable them in your browser settings to get instant alerts — announcements, deposits,
+            payouts — like other apps.
           </p>
         </div>
+        <button
+          onClick={dismiss}
+          aria-label="Dismiss"
+          className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-muted-foreground transition hover:bg-accent"
+        >
+          <X className="h-4 w-4" />
+        </button>
       </GlassCard>
     );
   }
@@ -329,9 +371,10 @@ function PushCard({ push }: { push: ReturnType<typeof usePush> }) {
         <BellRing className="h-5 w-5" />
       </span>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold">Get notifications on your phone</p>
+        <p className="text-sm font-bold">Get notifications like other apps</p>
         <p className="text-xs text-muted-foreground">
-          Deposit updates, payouts and announcements — even when the app is closed.
+          Deposit updates, payouts and announcements — a real notification arrives on this device,
+          even when the app is closed.
         </p>
       </div>
       <button
@@ -344,6 +387,13 @@ function PushCard({ push }: { push: ReturnType<typeof usePush> }) {
         className="btn-glass btn-glass-primary shrink-0 px-4 py-2 text-xs font-black disabled:opacity-60"
       >
         {busy ? "…" : "Allow"}
+      </button>
+      <button
+        onClick={dismiss}
+        aria-label="Dismiss"
+        className="grid h-8 w-8 shrink-0 place-items-center rounded-xl text-muted-foreground transition hover:bg-accent"
+      >
+        <X className="h-4 w-4" />
       </button>
     </GlassCard>
   );

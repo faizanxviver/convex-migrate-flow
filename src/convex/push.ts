@@ -92,6 +92,15 @@ export const getVapidKeys = internalQuery({
   },
 });
 
+/** Internal: every user id with a profile (broadcast targets). */
+export const listAllUserIds = internalQuery({
+  args: {},
+  handler: async (ctx) => {
+    const profiles = await ctx.db.query("profiles").collect();
+    return profiles.map((p) => p.userId);
+  },
+});
+
 /** Internal: subscriptions, optionally limited to specific users. */
 export const listSubscriptions = internalQuery({
   args: { userIds: v.optional(v.array(v.id("users"))) },

@@ -166,6 +166,24 @@
   [role="button"]:not([disabled]) {
     cursor: pointer;
   }
+  a,
+  button,
+  [role="button"] {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+/* Butter-smooth interactive polish — every tappable thing eases gently
+   instead of snapping, and presses give a soft squeeze. */
+@layer utilities {
+  .smooth-press {
+    transition:
+      transform 0.22s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.22s ease;
+  }
+  .smooth-press:active {
+    transform: scale(0.97);
+  }
 }
 
 @utility glass {
@@ -241,6 +259,10 @@
 
   &:hover {
     transform: translateY(-2px);
+  }
+
+  &:active {
+    transform: translateY(0) scale(0.98);
   }
 
   &:hover::after {

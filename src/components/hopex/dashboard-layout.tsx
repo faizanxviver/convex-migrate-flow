@@ -20,6 +20,7 @@ import {
   WalletMinimal,
   X,
 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useMutation } from "convex/react";
 import {
   createContext,
@@ -140,7 +141,7 @@ function NotificationBell() {
       <button
         onClick={() => setOpen((o) => !o)}
         aria-label="Notifications"
-        className="relative grid h-10 w-10 place-items-center rounded-xl glass-soft"
+        className="relative grid h-10 w-10 place-items-center rounded-xl glass-soft transition active:scale-90"
       >
         <BellRing className="h-4 w-4" />
         {unread > 0 ? (
@@ -206,7 +207,7 @@ function ChatFab() {
     <button
       onClick={() => setOpen(true)}
       aria-label="Open live chat"
-      className="fixed bottom-24 right-4 z-40 grid h-14 w-14 place-items-center rounded-full bg-[#25D366] text-white shadow-[0_10px_30px_-8px_rgba(37,211,102,0.8)] transition hover:scale-105 md:bottom-8"
+      className="fixed bottom-24 right-4 z-40 grid h-14 w-14 place-items-center rounded-full bg-[#25D366] text-white shadow-[0_10px_30px_-8px_rgba(37,211,102,0.8)] transition hover:scale-105 active:scale-90 md:bottom-8"
     >
       <MessageCircle className="h-6 w-6" fill="currentColor" strokeWidth={0} />
       {unread > 0 ? (
@@ -273,7 +274,7 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
                       key={l.to}
                       to={l.to}
                       className={cn(
-                        "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition",
+                        "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition active:scale-[0.97]",
                         pathname === l.to
                           ? "btn-glass btn-glass-primary"
                           : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
@@ -287,7 +288,7 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
                     <Link
                       to="/dashboard/admin"
                       className={cn(
-                        "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition",
+                        "flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium transition active:scale-[0.97]",
                         pathname === "/dashboard/admin"
                           ? "btn-glass btn-glass-gold"
                           : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
@@ -303,7 +304,7 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
                   <button
                     onClick={toggleTheme}
                     aria-label="Toggle theme"
-                    className="grid h-10 w-10 place-items-center rounded-xl glass-soft"
+                    className="grid h-10 w-10 place-items-center rounded-xl glass-soft transition active:scale-90"
                   >
                     {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                   </button>
@@ -311,7 +312,7 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
                     <button
                       onClick={() => setChatOpen(true)}
                       aria-label="Open live chat"
-                      className="grid h-10 w-10 place-items-center rounded-xl glass-soft"
+                      className="grid h-10 w-10 place-items-center rounded-xl glass-soft transition active:scale-90"
                     >
                       <Headset className="h-4 w-4" />
                     </button>
@@ -321,7 +322,7 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
                     <button
                       onClick={() => setProfileOpen((v) => !v)}
                       aria-label="Account menu"
-                      className="flex h-10 items-center gap-1 rounded-xl gradient-brand pl-2.5 pr-2 font-bold text-primary-foreground transition hover:brightness-110"
+                      className="flex h-10 items-center gap-1 rounded-xl gradient-brand pl-2.5 pr-2 font-bold text-primary-foreground transition hover:brightness-110 active:scale-95"
                     >
                       {initials(profile.name)}
                       <ChevronDown className={cn("h-3.5 w-3.5 transition-transform", profileOpen && "rotate-180")} />
@@ -350,7 +351,7 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
                   <button
                     onClick={handleSignOut}
                     aria-label="Sign out"
-                    className="hidden h-10 w-10 place-items-center rounded-xl glass-soft text-muted-foreground transition hover:text-destructive md:grid"
+                    className="hidden h-10 w-10 place-items-center rounded-xl glass-soft text-muted-foreground transition hover:text-destructive active:scale-90 md:grid"
                   >
                     <LogOut className="h-4 w-4" />
                   </button>
@@ -361,7 +362,18 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
             <AnnouncementBanner />
 
             <main className={cn("mx-auto px-4 pb-32 pt-6 md:pb-12", wide ? "max-w-[100rem]" : "max-w-7xl")}>
-              <Outlet />
+              {/* Butter-smooth page transitions on every navigation */}
+              <AnimatePresence mode="wait" initial={false}>
+                <motion.div
+                  key={pathname}
+                  initial={{ opacity: 0, y: 16, scale: 0.995 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.995 }}
+                  transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
+                >
+                  <Outlet />
+                </motion.div>
+              </AnimatePresence>
             </main>
 
             <ChatFab />
@@ -378,7 +390,7 @@ export function DashboardLayout({ wide = false }: { wide?: boolean }) {
                     key={l.to}
                     to={l.to}
                     className={cn(
-                      "flex flex-col items-center gap-1 rounded-2xl py-2 text-[10px] font-semibold transition",
+                      "flex flex-col items-center gap-1 rounded-2xl py-2 text-[10px] font-semibold transition active:scale-95",
                       active ? "btn-glass btn-glass-primary" : "text-muted-foreground",
                     )}
                   >

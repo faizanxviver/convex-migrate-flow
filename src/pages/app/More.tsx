@@ -66,7 +66,6 @@ export default function MorePage() {
   const rewards = [
     { to: "/dashboard/salary", label: "Rank salary", desc: "Weekly income for your rank", icon: Crown },
     { to: "/dashboard/leaderboard", label: "Leaderboard", desc: "Top earners and referrers", icon: Trophy },
-    { to: "/dashboard/rewards", label: "Free reward task", desc: "Earn a free bonus", icon: Gift },
     { to: "/dashboard/promo", label: "Promo codes", desc: "Redeem a bonus code", icon: Ticket },
   ] as const;
 

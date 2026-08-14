@@ -20,7 +20,7 @@ const SEED_PLANS = [
     maxAmount: 50000,
     dailyRoi: 1.2,
     durationDays: 30,
-    features: ["Daily payouts", "Principal returned", "Email support"],
+    features: ["Daily payouts", "Email support", "Activate multiple times"],
     sortOrder: 1,
   },
   {
@@ -30,7 +30,7 @@ const SEED_PLANS = [
     maxAmount: 250000,
     dailyRoi: 1.8,
     durationDays: 45,
-    features: ["Daily payouts", "Priority support", "Referral boost 5%"],
+    features: ["Daily payouts", "Priority support", "Activate multiple times"],
     sortOrder: 2,
   },
   {
@@ -40,7 +40,7 @@ const SEED_PLANS = [
     maxAmount: 1000000,
     dailyRoi: 2.4,
     durationDays: 60,
-    features: ["Daily payouts", "Dedicated manager", "Referral boost 10%"],
+    features: ["Daily payouts", "Dedicated manager", "Activate multiple times"],
     sortOrder: 3,
   },
   {
@@ -50,7 +50,7 @@ const SEED_PLANS = [
     maxAmount: 5000000,
     dailyRoi: 3.1,
     durationDays: 90,
-    features: ["Daily payouts", "Private desk", "Custom exit terms", "VIP events"],
+    features: ["Daily payouts", "Private desk", "VIP events", "Activate multiple times"],
     sortOrder: 4,
   },
 ];
@@ -200,6 +200,29 @@ export const seedReferenceData = mutation({
             createdAt: Date.now(),
           });
         }
+      }
+    }
+
+    // One-time migration: plan benefits no longer promise principal return or
+    // custom exit terms. Existing plans (and any admin-created ones) get those
+    // claims stripped and "Activate multiple times" added, so every plan on the
+    // site states that multiple activations are allowed.
+    const allPlans = await ctx.db.query("plans").collect();
+    for (const plan of allPlans) {
+      const feats = plan.features ?? [];
+      const seen = new Set<string>();
+      const clean: string[] = [];
+      for (const f of feats) {
+        const t = (f ?? "").trim();
+        if (!t) continue;
+        if (t.includes("Principal") || t.toLowerCase().includes("custom exit")) continue;
+        if (seen.has(t)) continue;
+        seen.add(t);
+        clean.push(t);
+      }
+      if (!clean.some((f) => /multiple/i.test(f))) clean.push("Activate multiple times");
+      if (clean.join("|") !== feats.map((f) => f.trim()).join("|")) {
+        await ctx.db.patch(plan._id, { features: clean });
       }
     }
 

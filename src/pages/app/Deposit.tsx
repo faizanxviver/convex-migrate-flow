@@ -1,10 +1,20 @@
 import { api } from "@/convex/_generated/api";
-import { LedgerHeader, MoneyStat } from "@/components/hopex/glass";
 import { useHope } from "@/hooks/use-hope";
-import { depositBalance, money, pendingDeposits } from "@/lib/hopex";
+import { depositBalance, money, pendingDeposits, withdrawableBalance } from "@/lib/hopex";
 import { cn } from "@/lib/utils";
 import { useMutation } from "convex/react";
-import { ArrowDownLeft, Clock, Loader2, ShieldCheck, Wallet, Zap } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowRight,
+  BadgeCheck,
+  Clock,
+  Loader2,
+  Lock,
+  ShieldCheck,
+  Sparkles,
+  Wallet,
+  Zap,
+} from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router";
 import { toast } from "sonner";
@@ -22,6 +32,7 @@ export default function DepositPage() {
   const minDeposit = settings?.minDeposit ?? 1000;
   const deposited = depositBalance(transactions, profile.userId);
   const pending = pendingDeposits(transactions, profile.userId);
+  const withdrawable = withdrawableBalance(profile.balance, transactions, profile.userId);
 
   const openGateway = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,31 +96,42 @@ export default function DepositPage() {
         />
       ) : null}
 
-      <LedgerHeader
-        title="Deposit funds"
-        subtitle={`Pick an amount, then pay inside the secure MPay gateway. Minimum ${money(minDeposit)}.`}
-        icon={<ArrowDownLeft className="h-5 w-5" />}
-      />
+      {/* ---------- hero ---------- */}
+      <div className="relative overflow-hidden rounded-[2rem] gradient-brand p-6 text-primary-foreground shadow-[0_24px_60px_-24px_rgba(139,92,246,0.55)] sm:p-8">
+        <span className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-white/15 blur-3xl" />
+        <span className="pointer-events-none absolute -bottom-28 -left-16 h-64 w-64 rounded-full bg-gold/40 blur-3xl" />
+        <div className="relative">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] backdrop-blur">
+            <Sparkles className="h-3 w-3" /> Secure MPay deposits
+          </span>
+          <h1 className="mt-3 font-display text-2xl font-black leading-tight sm:text-3xl">
+            Add funds to your wallet
+          </h1>
+          <p className="mt-1 max-w-sm text-xs text-primary-foreground/75 sm:text-sm">
+            Deposit as low as {money(minDeposit)} — pay inside the gateway, upload your
+            screenshot, and your balance credits after approval.
+          </p>
 
-      <div className="grid grid-cols-2 gap-3">
-        <MoneyStat
-          label="Deposit balance"
-          value={money(deposited)}
-          tone="success"
-          icon={<Wallet className="h-4 w-4" />}
-          hint="Approved top-ups"
-        />
-        <MoneyStat
-          label="Awaiting approval"
-          value={money(pending)}
-          tone="primary"
-          icon={<Clock className="h-4 w-4" />}
-          hint="In review"
-        />
+          <div className="mt-5 grid grid-cols-2 gap-3">
+            <div className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 backdrop-blur">
+              <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-primary-foreground/70">
+                <Wallet className="h-3 w-3" /> Deposit balance
+              </p>
+              <p className="mt-1 font-display text-xl font-black sm:text-2xl">{money(deposited)}</p>
+            </div>
+            <div className="rounded-2xl border border-white/20 bg-white/15 px-4 py-3 backdrop-blur">
+              <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-primary-foreground/70">
+                <Clock className="h-3 w-3" /> Awaiting approval
+              </p>
+              <p className="mt-1 font-display text-xl font-black sm:text-2xl">{money(pending)}</p>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[1.4fr_1fr]">
-        <div className="relative overflow-hidden rounded-[2rem] glass p-5">
+        {/* ---------- amount card ---------- */}
+        <div className="relative overflow-hidden rounded-[2rem] glass p-5 sm:p-6">
           <span className="pointer-events-none absolute -right-16 -top-20 h-52 w-52 rounded-full bg-primary/20 blur-3xl" />
           <form onSubmit={openGateway} className="relative space-y-5">
             <div>
@@ -123,7 +145,7 @@ export default function DepositPage() {
                     key={q}
                     onClick={() => setAmount(String(q))}
                     className={cn(
-                      "relative overflow-hidden rounded-2xl py-4 text-sm font-black transition-all hover:-translate-y-0.5",
+                      "relative overflow-hidden rounded-2xl py-4 text-sm font-black transition-all hover:-translate-y-0.5 active:scale-95",
                       Number(amount) === q
                         ? "gradient-brand text-primary-foreground shadow-lg shadow-primary/25"
                         : "glass-soft text-foreground",
@@ -152,6 +174,9 @@ export default function DepositPage() {
                   className="h-14 w-full rounded-2xl border-none bg-background/40 pl-12 pr-4 font-display text-xl font-black outline-none ring-1 ring-border/50 focus:ring-2 focus:ring-primary/50"
                 />
               </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                Minimum {money(minDeposit)} · no deposit fee
+              </p>
             </div>
 
             <button
@@ -163,7 +188,9 @@ export default function DepositPage() {
                   <Loader2 className="h-4 w-4 animate-spin" /> Connecting to MPay…
                 </>
               ) : (
-                "Submit & continue — MPay"
+                <>
+                  Submit & continue <ArrowRight className="h-4 w-4" />
+                </>
               )}
             </button>
             <p className="flex items-center justify-center gap-1.5 text-center text-[11px] text-muted-foreground">
@@ -173,6 +200,7 @@ export default function DepositPage() {
           </form>
         </div>
 
+        {/* ---------- right column ---------- */}
         <div className="space-y-4">
           <div className="rounded-[2rem] glass p-5">
             <p className="flex items-center gap-2 text-sm font-black">
@@ -194,13 +222,37 @@ export default function DepositPage() {
                 </li>
               ))}
             </ol>
-            <Link
-              to="/dashboard/deposit-history"
-              className="mt-5 flex h-11 items-center justify-center rounded-2xl gradient-cool text-sm font-black text-primary-foreground shadow-lg shadow-primary/20"
-            >
-              Deposit history
-            </Link>
           </div>
+
+          <div className="rounded-[2rem] glass p-5">
+            <p className="flex items-center gap-2 text-sm font-black">
+              <BadgeCheck className="h-4 w-4 text-success" /> Your balances
+            </p>
+            <div className="mt-4 space-y-3 text-sm">
+              <div className="flex items-center justify-between gap-3 rounded-2xl glass-soft px-4 py-3">
+                <span className="flex items-center gap-2 text-muted-foreground">
+                  <Lock className="h-3.5 w-3.5 text-gold" /> Deposit (locked)
+                </span>
+                <span className="font-bold">{money(deposited)}</span>
+              </div>
+              <div className="flex items-center justify-between gap-3 rounded-2xl glass-soft px-4 py-3">
+                <span className="text-muted-foreground">Withdraw balance</span>
+                <span className="font-bold text-success">{money(withdrawable)}</span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-muted-foreground">
+                Deposits are locked and can't be withdrawn — only your earnings (plan income,
+                commissions, bonuses and rewards) are withdrawable. Your deposit powers your
+                plans and grows your income.
+              </p>
+            </div>
+          </div>
+
+          <Link
+            to="/dashboard/deposit-history"
+            className="flex h-12 items-center justify-center gap-2 rounded-2xl gradient-cool text-sm font-black text-primary-foreground shadow-lg shadow-primary/20 transition hover:brightness-110 active:scale-[0.98]"
+          >
+            <ArrowDownLeft className="h-4 w-4" /> Deposit history
+          </Link>
         </div>
       </div>
     </div>

@@ -66,6 +66,15 @@ export function depositBalance(txs: Transaction[], userId: string) {
   );
 }
 
+/**
+ * Withdrawable balance = total balance minus approved deposits.
+ * Deposits are locked (the principal is never withdrawable) — only earnings
+ * are: plan income, referral commissions, promo bonuses, salary and rewards.
+ */
+export function withdrawableBalance(balance: number, txs: Transaction[], userId: string) {
+  return round2(Math.max(0, (Number(balance) || 0) - depositBalance(txs, userId)));
+}
+
 export function pendingDeposits(txs: Transaction[], userId: string) {
   return round2(
     txs

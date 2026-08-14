@@ -4,7 +4,7 @@ import { useChatUi } from "@/components/hopex/dashboard-layout";
 import { ChannelsPopup } from "@/components/hopex/channels";
 import { useHope } from "@/hooks/use-hope";
 import { useT } from "@/lib/i18n";
-import { depositBalance, money } from "@/lib/hopex";
+import { depositBalance, money, withdrawableBalance } from "@/lib/hopex";
 import {
   Banknote,
   X,
@@ -100,7 +100,7 @@ export default function MorePage() {
         </div>
 
         <div className="relative mt-4 grid gap-2 sm:grid-cols-3">
-          <Mini label={t("Withdrawable balance")} value={money(profile.balance)} />
+          <Mini label={t("Withdraw balance")} value={money(withdrawableBalance(profile.balance, transactions, profile.userId))} />
           <Mini label={t("Deposit balance")} value={money(depositBalance(transactions, profile.userId))} />
           <Mini label={t("Referral income")} value={money(profile.referralEarnings)} gold />
         </div>

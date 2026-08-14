@@ -26,6 +26,7 @@ export const DICT = {
     // dashboard
     "Total balance": "کل بیلنس",
     "Withdrawable balance": "قابلِ نکاسی بیلنس",
+    "Withdraw balance": "نکلنے والا بیلنس",
     "Deposit balance": "ڈپازٹ بیلنس",
     "Referral income": "ریفرل آمدنی",
     "Live earnings": "لائیو کمائی",

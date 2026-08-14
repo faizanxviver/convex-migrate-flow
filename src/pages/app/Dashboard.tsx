@@ -28,6 +28,7 @@ import {
   money,
   nextPayoutIn,
   salaryStatus,
+  withdrawableBalance,
 } from "@/lib/hopex";
 import { GlassCard } from "@/components/hopex/glass";
 import { DashboardPopup } from "@/components/hopex/community";
@@ -115,10 +116,10 @@ export default function DashboardPage() {
         <div className="pointer-events-none absolute -right-16 -top-16 h-52 w-52 rounded-full bg-primary/25 blur-3xl" />
         <div className="relative">
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
-            {t("Withdrawable balance")}
+            {t("Withdraw balance")}
           </p>
           <p className="mt-2 font-display text-4xl font-black tracking-tight sm:text-5xl">
-            {money(profile.balance)}
+            {money(withdrawableBalance(profile.balance, transactions, profile.userId))}
           </p>
 
           <div className="mt-4 inline-flex items-center gap-2 rounded-2xl glass-soft px-3 py-2">

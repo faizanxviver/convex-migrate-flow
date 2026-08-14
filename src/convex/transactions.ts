@@ -106,7 +106,24 @@ export const requestWithdraw = mutation({
     if (!profile.bankName || !profile.accountNumber || !profile.accountName)
       throw new Error("Bind a payout account in Profile before withdrawing");
 
-    if (profile.balance < amt) throw new Error("Insufficient balance");
+    // Deposits are locked — only earnings (plan income, commissions, promos,
+    // salary, rewards) are withdrawable: withdrawable = balance − approved deposits.
+    const txs = await ctx.db
+      .query("transactions")
+      .withIndex("by_user_created", (q) => q.eq("userId", userId))
+      .collect();
+    const deposited = round2(
+      txs
+        .filter(
+          (t) => t.type === "deposit" && (t.status === "approved" || t.status === "completed"),
+        )
+        .reduce((a, t) => a + t.amount, 0),
+    );
+    const withdrawable = round2(Math.max(0, profile.balance - deposited));
+    if (withdrawable < amt)
+      throw new Error(
+        `You can only withdraw your earnings (${fmt(withdrawable)}). Deposits are locked and cannot be withdrawn.`,
+      );
 
     // Hold the funds so pending requests cannot be double spent.
     await ctx.db.patch(profile._id, {

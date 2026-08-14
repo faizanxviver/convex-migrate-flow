@@ -132,6 +132,7 @@ export default function PlansPage() {
             <h3 className="font-display text-xl font-extrabold">Confirm activation</h3>
             <p className="mt-1 text-sm text-muted-foreground">{active.name}</p>
             <div className="mt-4 space-y-2 rounded-2xl glass-soft p-4 text-sm">
+              <Row label="Your deposit balance" value={money(deposited)} />
               <Row label="Price" value={money(price)} />
               <Row label="Daily income" value={money(daily)} />
               <Row label="Days" value={String(active.durationDays)} />

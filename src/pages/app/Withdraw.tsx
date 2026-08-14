@@ -1,7 +1,7 @@
 import { api } from "@/convex/_generated/api";
 import { GlassCard, SectionTitle } from "@/components/hopex/glass";
 import { useHope } from "@/hooks/use-hope";
-import { hour12, isWithdrawWindowOpen, money, pakistanClock } from "@/lib/hopex";
+import { depositBalance, hour12, isWithdrawWindowOpen, money, pakistanClock, withdrawableBalance } from "@/lib/hopex";
 import { cn } from "@/lib/utils";
 import { useMutation } from "convex/react";
 import {
@@ -49,6 +49,8 @@ export default function WithdrawPage() {
   const planActive = investments.some((i) => i.userId === profile.userId);
   const bound = Boolean(profile.accountNumber && profile.accountName);
   const windowOpen = isWithdrawWindowOpen(open, close, new Date(tick));
+  const withdrawable = withdrawableBalance(profile.balance, transactions, profile.userId);
+  const deposited = depositBalance(transactions, profile.userId);
 
   /* ---------- account binding first ---------- */
   if (!bound) {
@@ -129,6 +131,11 @@ export default function WithdrawPage() {
     if (!value || value < minWithdraw) {
       return toast.error(`Minimum withdrawal is ${money(minWithdraw)}.`);
     }
+    if (value > withdrawable) {
+      return toast.error(
+        `You can only withdraw your earnings (${money(withdrawable)}). Deposits are locked and cannot be withdrawn.`,
+      );
+    }
     if (!planActive) {
       return toast.error(
         "Please activate an investment plan first to withdraw. You can bind your payout account here and invest from the Plans page.",
@@ -164,7 +171,11 @@ export default function WithdrawPage() {
           <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">
             Withdrawable balance
           </p>
-          <p className="mt-1 font-display text-4xl font-black tracking-tight">{money(profile.balance)}</p>
+          <p className="mt-1 font-display text-4xl font-black tracking-tight">{money(withdrawable)}</p>
+          <p className="mt-1 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+            <Lock className="h-3 w-3 text-gold" />
+            Deposits are locked — {money(deposited)} stays in your deposit balance.
+          </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span
               className={cn(
@@ -213,7 +224,7 @@ export default function WithdrawPage() {
                 ))}
                 <button
                   type="button"
-                  onClick={() => setAmount(String(Math.floor(profile.balance)))}
+                  onClick={() => setAmount(String(Math.max(minWithdraw, Math.floor(withdrawable))))}
                   className="btn-glass h-11 text-xs font-bold text-foreground"
                 >
                   Max
@@ -276,6 +287,10 @@ export default function WithdrawPage() {
               <li className="flex items-start gap-2">
                 <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />
                 Minimum withdrawal is {money(minWithdraw)}
+              </li>
+              <li className="flex items-start gap-2">
+                <Lock className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+                Deposits are locked — only your earnings (plan income, commissions, bonuses, rewards) are withdrawable.
               </li>
               <li className="flex items-start gap-2">
                 <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" />

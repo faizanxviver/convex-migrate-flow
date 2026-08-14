@@ -23,10 +23,10 @@ import {
   activeInvestments,
   countdown,
   dailyIncome,
-  depositBalance,
   liveEarnings,
   money,
   nextPayoutIn,
+  remainingDeposit,
   salaryStatus,
   withdrawableBalance,
 } from "@/lib/hopex";
@@ -122,10 +122,12 @@ export default function DashboardPage() {
             {money(withdrawableBalance(profile.balance, transactions, profile.invested, profile.userId))}
           </p>
 
-          <div className="mt-4 inline-flex items-center gap-2 rounded-2xl glass-soft px-3 py-2">
+          <div className="mt-4 inline-flex items-center gap-2 rounded-2xl glass-soft px-3 py-2" title="Remaining deposit — drops when you activate a plan">
             <PiggyBank className="h-4 w-4 shrink-0 text-gold" />
             <span className="text-xs text-muted-foreground">{t("Deposit balance")}</span>
-            <span className="text-sm font-bold">{money(depositBalance(transactions, profile.userId))}</span>
+            <span className="text-sm font-bold">
+              {money(remainingDeposit(profile.balance, transactions, profile.invested, profile.userId))}
+            </span>
           </div>
 
           <div className="mt-6 grid grid-cols-2 gap-3">

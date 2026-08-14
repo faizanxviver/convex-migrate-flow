@@ -5,8 +5,8 @@ import { useHope } from "@/hooks/use-hope";
 import {
   activeInvestments,
   dailyIncome,
-  depositBalance,
   investableBalance,
+  remainingDeposit,
   money,
   planDaily,
   round2,
@@ -49,7 +49,7 @@ export default function PlansPage() {
   const [busy, setBusy] = useState(false);
 
   if (!profile) return null;
-  const deposited = depositBalance(transactions, profile.userId);
+  const deposited = remainingDeposit(profile.balance, transactions, profile.invested, profile.userId);
   const investable = investableBalance(profile.balance, transactions, profile.invested, profile.userId);
   const running = activeInvestments(investments, profile.userId);
   const totalDaily = dailyIncome(investments, profile.userId);
@@ -116,9 +116,9 @@ export default function PlansPage() {
             <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-[0.18em] text-primary-foreground/80">
               <Wallet2 className="h-3.5 w-3.5" /> Deposit balance
             </p>
-            <p className="mt-2 font-display text-3xl font-black">{money(investable)}</p>
+            <p className="mt-2 font-display text-3xl font-black">{money(deposited)}</p>
             <p className="mt-1 text-xs text-primary-foreground/75">
-              Total deposited {money(deposited)} — available to fund new plans
+              Remaining of your total deposits — drops when you activate a plan
             </p>
             <button
               onClick={() => navigate("/dashboard/deposit")}
@@ -238,7 +238,7 @@ export default function PlansPage() {
             <h3 className="font-display text-xl font-extrabold">Confirm activation</h3>
             <p className="mt-1 text-sm text-muted-foreground">{active.name}</p>
             <div className="mt-4 space-y-2 rounded-2xl glass-soft p-4 text-sm">
-              <Row label="Deposit available" value={money(investable)} />
+              <Row label="Available to invest" value={money(investable)} />
               <Row label="Price" value={money(price)} />
               <Row label="Daily income" value={money(daily)} />
               <Row label="First income" value={money(daily)} accent />
@@ -246,7 +246,7 @@ export default function PlansPage() {
               <Row label="Total return" value={money(total)} accentGold />
             </div>
             <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-              {money(price)} is funded from your deposit balance and your first income of{" "}
+              {money(price)} is funded from your available balance and your first income of{" "}
               {money(daily)} is credited to your withdrawable balance instantly. You can activate
               this plan again any time — multiple active plans run together.
             </p>

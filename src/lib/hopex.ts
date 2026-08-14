@@ -67,6 +67,21 @@ export function depositBalance(txs: Transaction[], userId: string) {
 }
 
 /**
+ * Deposit principal still available — deposits that have not been invested
+ * into plans yet. This is the number users expect to "cut" when they activate
+ * a plan (capped by the wallet balance so it can never exceed what they hold).
+ */
+export function remainingDeposit(
+  balance: number,
+  txs: Transaction[],
+  invested: number,
+  userId: string,
+) {
+  const remaining = Math.max(0, depositBalance(txs, userId) - (Number(invested) || 0));
+  return round2(Math.min(Math.max(0, Number(balance) || 0), remaining));
+}
+
+/**
  * Withdrawable balance = wallet balance minus the deposit principal that is
  * still locked (deposits not yet invested into plans). The moment a deposit
  * is invested, that amount stops being locked, so the first income credited

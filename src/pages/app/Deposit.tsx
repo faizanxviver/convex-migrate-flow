@@ -42,7 +42,7 @@ export default function DepositPage() {
     // ourselves right before navigating instead.
     const tab = window.open("", "_blank");
     tab?.document.open();
-    tab?.document.write(gatewayBootPage());
+    tab?.document.write(gatewayBootPage(settings?.siteName || "HopeX", settings?.siteLogo));
     tab?.document.close();
     try {
       // Tell the backend where the user actually is, so the gateway's
@@ -77,7 +77,13 @@ export default function DepositPage() {
 
   return (
     <div className="space-y-4 pb-24">
-      {connecting ? <ConnectingOverlay amount={Number(amount)} /> : null}
+      {connecting ? (
+        <ConnectingOverlay
+          amount={Number(amount)}
+          name={settings?.siteName || "HopeX"}
+          logo={settings?.siteLogo}
+        />
+      ) : null}
 
       <LedgerHeader
         title="Deposit funds"
@@ -201,42 +207,70 @@ export default function DepositPage() {
   );
 }
 
-function ConnectingOverlay({ amount }: { amount: number }) {
+function ConnectingOverlay({ amount, name, logo }: { amount: number; name: string; logo?: string }) {
   return (
-    <div className="fixed inset-0 z-[120] grid min-h-dvh place-items-center overflow-y-auto bg-white/95 p-4 backdrop-blur-xl">
-      <div className="pointer-events-none absolute -left-20 -top-24 h-72 w-72 rounded-full bg-primary/10 blur-3xl" />
-      <div className="pointer-events-none absolute -bottom-24 -right-20 h-72 w-72 rounded-full bg-gold/15 blur-3xl" />
-      <div className="animate-rise relative w-full max-w-sm rounded-[2rem] border border-border/60 bg-white p-7 text-center shadow-[0_20px_60px_-20px_rgba(30,41,59,0.25)]">
-        <div className="mx-auto grid h-20 w-20 place-items-center rounded-3xl gradient-brand text-primary-foreground shadow-[0_12px_40px_-10px_var(--primary)]">
-          <Loader2 className="h-9 w-9 animate-spin [animation-duration:0.5s]" />
+    <div className="fixed inset-0 z-[120] grid min-h-dvh place-items-center overflow-y-auto bg-white p-4">
+      {/* soft brand blobs */}
+      <div className="pointer-events-none absolute -left-24 -top-28 h-80 w-80 rounded-full bg-[#8B5CF6]/15 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-28 -right-24 h-80 w-80 rounded-full bg-[#F59E0B]/20 blur-3xl" />
+
+      <div className="animate-rise relative w-full max-w-sm rounded-[2rem] border border-border/60 bg-white p-7 text-center shadow-[0_24px_60px_-24px_rgba(30,41,59,0.28)]">
+        {/* logo with spinning ring */}
+        <div className="relative mx-auto h-24 w-24">
+          <span className="absolute inset-0 animate-spin rounded-full border-[3px] border-[#8B5CF6]/20 border-t-[#8B5CF6] [animation-duration:1.1s]" />
+          <span className="absolute inset-[7px] animate-spin rounded-full border-[3px] border-transparent border-t-[#F59E0B] [animation-duration:1.6s] [animation-direction:reverse]" />
+          <span className="absolute inset-3 grid place-items-center overflow-hidden rounded-[1.4rem] gradient-brand font-display text-3xl font-black text-primary-foreground shadow-[0_12px_40px_-10px_rgba(139,92,246,0.6)]">
+            {logo ? (
+              <img src={logo} alt={`${name} logo`} className="h-full w-full object-cover" />
+            ) : (
+              (name[0] ?? "H")
+            )}
+          </span>
         </div>
-        <h2 className="mt-5 font-display text-2xl font-black leading-snug">Jumping to gateway…</h2>
-        <p className="mx-auto mt-2 text-sm leading-relaxed text-muted-foreground">
+
+        <h2 className="mt-6 font-display text-2xl font-black leading-snug">Securing your payment…</h2>
+        <p className="mx-auto mt-2 max-w-[17rem] text-sm leading-relaxed text-muted-foreground">
           Preparing your secure session{amount ? ` for ${money(amount)}` : ""}. The payment page is
-          already loading in the new tab — you will be redirected automatically.
+          loading in the new tab — you will be redirected automatically.
         </p>
+
         <div className="mt-6 h-2 w-full overflow-hidden rounded-full bg-muted">
-          <div className="h-full w-1/3 animate-[scroll_0.7s_linear_infinite] rounded-full gradient-cool" />
+          <div className="h-full w-1/3 animate-[scroll_0.8s_linear_infinite] rounded-full gradient-brand" />
         </div>
-        <p className="mt-4 flex items-center justify-center gap-1.5 text-xs text-muted-foreground">
-          <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-success" /> Encrypted MPay session
+
+        <p className="mt-4 inline-flex items-center gap-1.5 rounded-full bg-[#8B5CF6]/10 px-3.5 py-1.5 text-xs font-bold text-[#8B5CF6]">
+          <ShieldCheck className="h-3.5 w-3.5 shrink-0" /> Encrypted MPay session
         </p>
       </div>
     </div>
   );
 }
 
-function gatewayBootPage() {
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<style>html,body{height:100%;margin:0;background:#ffffff;color:#1e293b;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
-.wrap{min-height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px;position:relative;overflow:hidden}
-.blob{position:absolute;border-radius:50%;filter:blur(80px);opacity:.18;pointer-events:none}
-.b1{width:360px;height:360px;background:#10b981;top:-120px;right:-100px}.b2{width:360px;height:360px;background:#f59e0b;bottom:-130px;left:-110px}
-.logo{position:relative;width:68px;height:68px;border-radius:22px;background:linear-gradient(135deg,#10b981,#0ea5e9 55%,#f59e0b);display:grid;place-items:center;font-weight:900;font-size:28px;color:#fff;box-shadow:0 14px 44px -10px rgba(16,185,129,.5)}
-.spin{position:relative;width:46px;height:46px;border-radius:50%;border:4px solid rgba(16,185,129,.18);border-top-color:#10b981;border-right-color:#f59e0b;animation:rot .75s linear infinite}
+function gatewayBootPage(name: string, logo?: string) {
+  const mark = logo
+    ? `<img src="${logo}" alt="${name} logo" style="width:100%;height:100%;object-fit:cover;display:block;border-radius:inherit" />`
+    : `<span style="position:relative;font-size:34px;font-weight:900;color:#fff">${(name[0] ?? "H").toUpperCase()}</span>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<style>
+html,body{height:100%;margin:0;background:#ffffff;color:#0f172a;font-family:'Plus Jakarta Sans',ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+.wrap{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px 20px;position:relative;overflow:hidden;box-sizing:border-box}
+.blob{position:absolute;border-radius:50%;filter:blur(90px);pointer-events:none}
+.b1{width:min(70vw,380px);height:min(70vw,380px);background:rgba(139,92,246,.16);top:-110px;right:-90px}
+.b2{width:min(70vw,380px);height:min(70vw,380px);background:rgba(245,158,11,.20);bottom:-120px;left:-100px}
+.logo-wrap{position:relative;width:120px;height:120px;margin-bottom:26px}
+.ring{position:absolute;inset:0;border-radius:50%;border:3px solid rgba(139,92,246,.18);border-top-color:#8b5cf6;animation:rot 1.1s linear infinite}
+.ring2{position:absolute;inset:7px;border-radius:50%;border:3px solid transparent;border-top-color:#f59e0b;animation:rot 1.6s linear infinite reverse}
+.logo{position:absolute;inset:12px;border-radius:26px;background:linear-gradient(135deg,#8b5cf6,#f59e0b);display:grid;place-items:center;overflow:hidden;box-shadow:0 16px 44px -12px rgba(139,92,246,.55)}
 @keyframes rot{to{transform:rotate(360deg)}}
-h1{position:relative;font-size:21px;font-weight:800;margin:0;letter-spacing:.2px}
-p{position:relative;font-size:14px;color:#64748b;margin:0;max-width:330px;line-height:1.6}
-.pill{position:relative;margin-top:4px;font-size:11px;color:#059669;border:1px solid rgba(16,185,129,.45);background:rgba(16,185,129,.08);border-radius:999px;padding:7px 18px;letter-spacing:.4px;text-transform:uppercase;font-weight:700}
-</style></head><body><div class="wrap"><div class="blob b1"></div><div class="blob b2"></div><div class="logo">H</div><div class="spin"></div><h1>Jumping to gateway…</h1><p>Securing your payment session. You'll be redirected automatically — please keep this tab open.</p><span class="pill">Encrypted MPay session</span></div></body></html>`;
+h1{position:relative;margin:0;font-size:22px;font-weight:800;letter-spacing:.2px}
+p{position:relative;margin:10px 0 0;font-size:14px;color:#64748b;line-height:1.6;max-width:330px}
+.bar{position:relative;margin-top:26px;width:min(78%,260px);height:8px;border-radius:999px;background:#eef0f4;overflow:hidden}
+.bar i{position:absolute;inset:0;border-radius:999px;background:linear-gradient(90deg,#8b5cf6,#f59e0b);transform:translateX(-100%);animation:slide 1s ease-in-out infinite}
+@keyframes slide{0%{transform:translateX(-100%)}50%{transform:translateX(0)}100%{transform:translateX(100%)}}
+.pill{position:relative;margin-top:20px;font-size:11px;color:#7c3aed;border:1px solid rgba(139,92,246,.35);background:rgba(139,92,246,.08);border-radius:999px;padding:8px 18px;letter-spacing:.4px;text-transform:uppercase;font-weight:800}
+</style></head><body><div class="wrap"><div class="blob b1"></div><div class="blob b2"></div>
+<div class="logo-wrap"><div class="ring"></div><div class="ring2"></div><div class="logo">${mark}</div></div>
+<h1>Securing your payment…</h1><p>Preparing your secure session. The payment page is loading — you'll be redirected automatically, please keep this tab open.</p>
+<div class="bar"><i></i></div>
+<span class="pill">Encrypted MPay session</span></div></body></html>`;
 }

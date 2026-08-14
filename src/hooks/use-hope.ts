@@ -44,9 +44,6 @@ export function useHope() {
   const approvedProofs = useQuery(api.proofs.approvedProofs);
   const promos = useQuery(api.promoCodes.listPromoCodes);
   const leaderPlans = useQuery(api.leaderPlans.myLeaderPlans);
-  // True when this user has a live push subscription (app installed + notifications
-  // allowed) — used to hide the "Download the app" banner from app users.
-  const myPushEnabled = useQuery(api.push.myPushEnabled);
 
   // Seed reference data (plans / settings / methods / promos) once per load.
   useEffect(() => {
@@ -95,7 +92,6 @@ export function useHope() {
     approvedProofs: approvedProofs ?? [],
     promos: promos ?? [],
     leaderPlans: leaderPlans ?? [],
-    myPushEnabled: myPushEnabled ?? false,
   };
 }
 

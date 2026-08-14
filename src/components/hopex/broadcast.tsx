@@ -130,9 +130,8 @@ export function AppBroadcastPanel() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [alsoPush, setAlsoPush] = useState(true);
-  // Default OFF per owner: app-section notifications go to the in-app bell only;
-  // the website top-popup is opt-in via the checkbox (phone push is separate).
-  const [showPopup, setShowPopup] = useState(false);
+  // Notifications land in the in-app bell only — the website top popup was
+  // removed per the owner.
   const [busy, setBusy] = useState(false);
 
   const send = async (e: React.FormEvent) => {
@@ -147,7 +146,6 @@ export function AppBroadcastPanel() {
         body: body.trim(),
         image: image.trim() || undefined,
         userIds,
-        popup: showPopup,
         alsoPush,
       });
       toast.success(
@@ -175,8 +173,7 @@ export function AppBroadcastPanel() {
         App notification broadcast
       </h2>
       <p className="mt-1 text-xs text-muted-foreground">
-        In-app notification bell + optional phone/web push. Website par top popup sirf tab jab checkbox
-        on karein. Image ke sath bhi.
+        In-app notification bell + optional phone/web push. Image ke sath bhi.
       </p>
       <form onSubmit={send} className="mt-4 space-y-3">
         <TargetPicker target={target} setTarget={setTarget} />
@@ -192,7 +189,7 @@ export function AppBroadcastPanel() {
         <input
           value={image}
           onChange={(e) => setImage(e.target.value)}
-          placeholder="Image URL (optional) — popup me dikhegi"
+          placeholder="Image URL (optional) — bell me dikhegi"
           className="h-12 w-full rounded-xl border border-input bg-background/40 px-4 text-sm outline-none"
         />
         <textarea
@@ -214,20 +211,6 @@ export function AppBroadcastPanel() {
               <b>Phone / web push bhi</b>
               <span className="block text-[11px] text-muted-foreground">
                 Unki phone par real notification — website/app band ho to bhi
-              </span>
-            </span>
-          </label>
-          <label className="flex cursor-pointer items-center gap-2.5 rounded-2xl border border-border/60 bg-background/40 px-4 py-3 text-sm">
-            <input
-              type="checkbox"
-              checked={showPopup}
-              onChange={(e) => setShowPopup(e.target.checked)}
-              className="h-4 w-4 shrink-0 accent-[var(--primary)]"
-            />
-            <span>
-              <b>Top popup website me dikhao</b>
-              <span className="block text-[11px] text-muted-foreground">
-                (Off by default) Notification-style popup jab user dashboard khol raha ho
               </span>
             </span>
           </label>

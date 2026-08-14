@@ -63,11 +63,20 @@ export default function DepositPage() {
         tab.opener = null;
         tab.location.href = session.url;
       } else {
-        // No tab (blocked) — never navigate the current page away; give the
-        // user a direct link instead.
-        toast.success("MPay is ready — click here to open it:", {
-          action: { label: "Open MPay", onClick: () => window.open(session.url, "_blank", "noopener,noreferrer") },
-        });
+        // No tab (blocked) — never navigate the current page away. Try a
+        // direct new-tab open now that the session exists; if the browser
+        // still blocks it, hand the user a clickable link.
+        const popup = window.open(session.url, "_blank", "noopener,noreferrer");
+        if (popup) {
+          toast.success("MPay opened in a new tab. Complete your payment there.");
+        } else {
+          toast.success("MPay is ready — click here to open it:", {
+            action: {
+              label: "Open MPay",
+              onClick: () => window.open(session.url, "_blank", "noopener,noreferrer"),
+            },
+          });
+        }
         return;
       }
       toast.success("MPay opened in a new tab. Complete your payment there.");
